@@ -1,6 +1,7 @@
 import type { EstimateInput, CostEstimateResult } from '../types';
 import { getCountry, getCity, getState } from '../data/countries';
 import { calculateTax, calculateHypoTax, calculateGrossUp } from './tax';
+import { computeSplitSourcing } from './splitSourcing';
 
 export function computeEstimate(input: EstimateInput): CostEstimateResult | null {
   const homeCountry = getCountry(input.homeCountryCode);
@@ -66,13 +67,18 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const totalAllowances = housingAnnual + colaAnnual + schoolingAnnual + homeLeaveAnnual
     + transportAnnual + utilitiesAnnual + immigrationAnnual + relocationAnnual + taxPrepAnnual;
 
+  // --- Split-Sourcing ---
+  const splitSourcing = computeSplitSourcing(input);
+  const bonusHostTaxable = splitSourcing.bonus.hostTaxableAmount;
+  const equityHostTaxable = splitSourcing.equity.hostTaxableAmount;
+
   // --- Tax Calculations ---
   const homeStateTaxRate = homeState?.stateTaxRate || 0;
   const homeLocalTaxRate = homeState?.localTaxRate || 0;
   const hostStateTaxRate = hostState?.stateTaxRate || 0;
   const hostLocalTaxRate = hostState?.localTaxRate || 0;
 
-  // Home country tax on total compensation
+  // Home country tax on total compensation (worldwide)
   const homeTax = calculateTax(
     totalGrossComp,
     homeCountry,
@@ -82,8 +88,8 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     isMarried,
   );
 
-  // Host country tax on total compensation + allowances
-  const hostTaxableIncome = totalGrossComp + totalAllowances;
+  // Host country tax: base salary + split-sourced bonus/equity + allowances
+  const hostTaxableIncome = baseSalary + bonusHostTaxable + equityHostTaxable + totalAllowances;
   const hostTax = calculateTax(
     hostTaxableIncome,
     hostCountry,
@@ -164,6 +170,7 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     homeTax,
     hostTax,
     hypoTax,
+    splitSourcing,
     benefits: {
       housing: housingAnnual,
       cola: colaAnnual,

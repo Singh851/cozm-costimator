@@ -6,6 +6,7 @@ import { computeEstimate } from './engine/costEstimate';
 import { CostCharts } from './components/Charts';
 import { TaxBreakdown } from './components/TaxBreakdown';
 import { BalanceSheet } from './components/BalanceSheet';
+import { PrintReport } from './components/PrintReport';
 
 const fmt = (n: number, currency?: string) => {
   const c = currencies.find(cc => cc.code === currency);
@@ -17,6 +18,7 @@ const fmt = (n: number, currency?: string) => {
 
 function App() {
   const [activeTab, setActiveTab] = useState<'estimate' | 'host' | 'hypo' | 'planning'>('estimate');
+  const [showReport, setShowReport] = useState(false);
 
   const [input, setInput] = useState<EstimateInput>({
     estimateName: '',
@@ -75,15 +77,21 @@ function App() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#40AEBC] flex items-center justify-center">
-              <span className="text-white font-bold text-sm">C</span>
-            </div>
+            <img src="https://www.thecozm.com/images/logo/theCozmLogo.png" alt="Cozm" className="h-8 w-auto" />
             <div>
               <h1 className="text-base font-semibold text-slate-800 leading-tight">Cozm Mobility Costimator</h1>
               <p className="text-[10px] text-slate-400 -mt-0.5">v3.2 — with Equity & Bonus</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {result && (
+              <button
+                onClick={() => setShowReport(true)}
+                className="no-print px-3 py-1.5 text-xs font-medium bg-[#40AEBC] text-white rounded-lg hover:bg-[#2D8A96] transition-colors"
+              >
+                Generate Report
+              </button>
+            )}
             <span className="text-xs text-slate-400">Powered by</span>
             <span className="text-xs font-semibold text-[#40AEBC]">The Cozm</span>
           </div>
@@ -172,12 +180,22 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-4 mt-8">
+      <footer className="bg-white border-t border-slate-200 py-4 mt-8 no-print">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <p className="text-xs text-slate-400">Cozm Mobility Costimator v3.2 — For illustration purposes only</p>
           <p className="text-xs text-slate-400">The Cozm Ltd</p>
         </div>
       </footer>
+
+      {showReport && result && (
+        <PrintReport
+          result={result}
+          currency={input.currency}
+          homeCountry={homeCountry}
+          hostCountry={hostCountry}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </div>
   );
 }
@@ -317,6 +335,16 @@ function InputPanel({
             </div>
           )}
           <p className="text-xs text-amber-600 mt-1">Target bonus — included in hypothetical tax and gross-up calculations</p>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <label className="text-xs text-amber-600 mb-1 block">Performance Period Start</label>
+              <input type="date" value={input.bonusPerformancePeriodStart || ''} onChange={e => update({ bonusPerformancePeriodStart: e.target.value || undefined })} className="input-field text-xs" />
+            </div>
+            <div>
+              <label className="text-xs text-amber-600 mb-1 block">Performance Period End</label>
+              <input type="date" value={input.bonusPerformancePeriodEnd || ''} onChange={e => update({ bonusPerformancePeriodEnd: e.target.value || undefined })} className="input-field text-xs" />
+            </div>
+          </div>
         </div>
 
         {/* Equity Income - NEW */}
@@ -335,6 +363,16 @@ function InputPanel({
               <select value={input.equityVestingSchedule} onChange={e => update({ equityVestingSchedule: e.target.value as EstimateInput['equityVestingSchedule'] })} className="input-field text-xs">
                 {vestingSchedules.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
               </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <label className="text-xs text-purple-600 mb-1 block">Vesting Period Start</label>
+              <input type="date" value={input.equityVestingStart || ''} onChange={e => update({ equityVestingStart: e.target.value || undefined })} className="input-field text-xs" />
+            </div>
+            <div>
+              <label className="text-xs text-purple-600 mb-1 block">Vesting Period End</label>
+              <input type="date" value={input.equityVestingEnd || ''} onChange={e => update({ equityVestingEnd: e.target.value || undefined })} className="input-field text-xs" />
             </div>
           </div>
           <p className="text-xs text-purple-600 mt-1.5">
@@ -427,7 +465,7 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
           <SummaryRow label="Annual Bonus" value={result.homeCompensation.annualBonus} currency={currency} accent="amber" />
           <SummaryRow label="Equity Income" value={result.homeCompensation.equityIncome} currency={currency} accent="purple" />
           <div className="border-t border-slate-200 pt-2">
-            <SummaryRow label="Total Gross Compensation" value={result.homeCompensation.totalGross + result.homeCompensation.equityIncome} currency={currency} bold />
+            <SummaryRow label="Total Gross Compensation" value={result.homeCompensation.totalGross} currency={currency} bold />
           </div>
         </div>
       </Card>
@@ -492,39 +530,71 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
       </Card>
 
       {/* Equity Tax Implications */}
-      {result.homeCompensation.equityIncome > 0 && (
-        <Card title="Equity Income Tax Implications">
-          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-purple-600 font-medium">Equity Amount</p>
-                <p className="text-lg font-semibold text-purple-800">{fmt(result.homeCompensation.equityIncome, currency)}</p>
+      {/* Split-Sourcing Summary */}
+      {(result.homeCompensation.equityIncome > 0 || result.homeCompensation.annualBonus > 0) && (
+        <Card title="Split-Sourcing Analysis">
+          <div className="space-y-4">
+            {result.homeCompensation.annualBonus > 0 && (
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                <h4 className="text-sm font-semibold text-amber-800 mb-2">Bonus Split-Sourcing</h4>
+                <div className="grid grid-cols-2 gap-4 mb-2">
+                  <div>
+                    <p className="text-xs text-amber-600 font-medium">Total Bonus</p>
+                    <p className="text-lg font-semibold text-amber-800">{fmt(result.homeCompensation.annualBonus, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-amber-600 font-medium">Host-Taxable Bonus</p>
+                    <p className="text-lg font-semibold text-amber-800">{fmt(result.splitSourcing.bonus.hostTaxableAmount, currency)}</p>
+                  </div>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">Performance Period Days</span>
+                    <span className="font-medium text-amber-800">{result.splitSourcing.bonus.performancePeriodDays}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">Days in Host During Period</span>
+                    <span className="font-medium text-amber-800">{result.splitSourcing.bonus.overlapDays}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">Host Ratio</span>
+                    <span className="font-medium text-amber-800">{(result.splitSourcing.bonus.hostRatio * 100).toFixed(2)}%</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-purple-600 font-medium">Type</p>
-                <p className="text-sm font-medium text-purple-800">
-                  {equityTypes.find(t => t.value === result.input.equityType)?.label}
+            )}
+            {result.homeCompensation.equityIncome > 0 && (
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <h4 className="text-sm font-semibold text-purple-800 mb-2">Equity Split-Sourcing</h4>
+                <div className="grid grid-cols-2 gap-4 mb-2">
+                  <div>
+                    <p className="text-xs text-purple-600 font-medium">Total Equity ({equityTypes.find(t => t.value === result.input.equityType)?.label})</p>
+                    <p className="text-lg font-semibold text-purple-800">{fmt(result.homeCompensation.equityIncome, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-purple-600 font-medium">Host-Taxable Equity</p>
+                    <p className="text-lg font-semibold text-purple-800">{fmt(result.splitSourcing.equity.hostTaxableAmount, currency)}</p>
+                  </div>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-purple-700">Vesting Period Days</span>
+                    <span className="font-medium text-purple-800">{result.splitSourcing.equity.vestingPeriodDays}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-purple-700">Days in Host During Vesting</span>
+                    <span className="font-medium text-purple-800">{result.splitSourcing.equity.overlapDays}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-purple-700">Host Ratio</span>
+                    <span className="font-medium text-purple-800">{(result.splitSourcing.equity.hostRatio * 100).toFixed(2)}%</span>
+                  </div>
+                </div>
+                <p className="text-xs text-purple-500 mt-3">
+                  Equity split-sourced by day-count during the vesting period per HMRC / IRC &sect;861 rules.
                 </p>
               </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-purple-200 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-purple-700">Home Country Tax on Equity</span>
-                <span className="font-medium text-purple-800">{fmt(result.homeCompensation.equityIncome * result.homeTax.effectiveRate, currency)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-purple-700">Host Country Tax on Equity</span>
-                <span className="font-medium text-purple-800">{fmt(result.homeCompensation.equityIncome * result.hostTax.effectiveRate, currency)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-purple-700">Split-Sourcing Ratio (by duration)</span>
-                <span className="font-medium text-purple-800">{Math.round((result.input.durationMonths / (result.input.durationMonths + 12)) * 100)}% Host / {Math.round((12 / (result.input.durationMonths + 12)) * 100)}% Home</span>
-              </div>
-            </div>
-            <p className="text-xs text-purple-500 mt-3">
-              Equity compensation is subject to cross-border split-sourcing based on days worked in each jurisdiction during the vesting period.
-              Actual allocation requires detailed day-count analysis.
-            </p>
+            )}
           </div>
         </Card>
       )}
@@ -541,7 +611,7 @@ function PlanningInsights({ result, currency, input }: {
   const taxDiff = result.hostTax.totalIncomeTax - result.homeTax.totalIncomeTax;
   const ssDiff = (result.hostTax.ssEmployee + result.hostTax.ssEmployer) - (result.homeTax.ssEmployee + result.homeTax.ssEmployer);
   const equityRatio = result.homeCompensation.equityIncome > 0
-    ? result.homeCompensation.equityIncome / (result.homeCompensation.totalGross + result.homeCompensation.equityIncome) * 100
+    ? result.homeCompensation.equityIncome / result.homeCompensation.totalGross * 100
     : 0;
 
   return (
@@ -616,7 +686,7 @@ function PlanningInsights({ result, currency, input }: {
             <tbody>
               {Array.from({ length: Math.ceil(input.durationMonths / 12) }, (_, i) => {
                 const inflationFactor = Math.pow(1.03, i); // 3% annual inflation
-                const comp = (result.homeCompensation.totalGross + result.homeCompensation.equityIncome) * inflationFactor;
+                const comp = result.homeCompensation.totalGross * inflationFactor;
                 const allow = result.benefits.totalAllowances * inflationFactor;
                 const taxSS = (result.grossUp.totalGrossUp + result.homeTax.ssEmployer) * inflationFactor;
                 const total = result.totalEstimatedCost * inflationFactor;

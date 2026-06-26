@@ -70,6 +70,27 @@ export interface EstimateInput {
   benefits: Record<string, BenefitConfig>;
   hypoTaxPhilosophy: 'taxEqualization' | 'taxProtection' | 'stayAtHome';
   ssStrategy: 'home' | 'host' | 'both';
+  bonusPerformancePeriodStart?: string;
+  bonusPerformancePeriodEnd?: string;
+  equityVestingStart?: string;
+  equityVestingEnd?: string;
+}
+
+export interface SplitSourcingResult {
+  bonus: {
+    performancePeriodDays: number;
+    overlapDays: number;
+    hostRatio: number;
+    hostTaxableAmount: number;
+  };
+  equity: {
+    vestingPeriodDays: number;
+    overlapDays: number;
+    hostRatio: number;
+    hostTaxableAmount: number;
+  };
+  assignmentStart: string;
+  assignmentEnd: string;
 }
 
 export interface TaxResult {
@@ -124,6 +145,7 @@ export interface CostEstimateResult {
     hostAllowances: number;
     totalHostPackage: number;
   };
+  splitSourcing: SplitSourcingResult;
   totalEstimatedCost: number;
   annualCost: number;
   monthlyCost: number;

@@ -10,6 +10,7 @@ const fmt = (n: number, currency?: string) => {
 
 export function BalanceSheet({ result, currency }: { result: CostEstimateResult; currency: string }) {
   const bs = result.balanceSheet;
+  const ss = result.splitSourcing;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden max-w-4xl mx-auto">
@@ -22,7 +23,7 @@ export function BalanceSheet({ result, currency }: { result: CostEstimateResult;
           <tbody>
             <tr className="border-b border-slate-100">
               <td className="py-2.5 text-slate-600">Total Gross Compensation</td>
-              <td className="py-2.5 text-right font-medium text-slate-800">{fmt(bs.homeGross + result.homeCompensation.equityIncome, currency)}</td>
+              <td className="py-2.5 text-right font-medium text-slate-800">{fmt(bs.homeGross, currency)}</td>
             </tr>
             <tr className="border-b border-slate-100">
               <td className="py-2.5 text-slate-600 pl-4">Base Salary</td>
@@ -38,6 +39,34 @@ export function BalanceSheet({ result, currency }: { result: CostEstimateResult;
                 <td className="py-2.5 text-right text-purple-600">{fmt(result.homeCompensation.equityIncome, currency)}</td>
               </tr>
             )}
+
+            {/* Host-Apportioned Detail */}
+            {(ss.bonus.hostRatio < 1 || ss.equity.hostRatio < 1) && (
+              <>
+                <tr className="border-b border-slate-100 bg-emerald-50/50">
+                  <td className="py-2 text-xs font-semibold text-emerald-700 uppercase tracking-wider" colSpan={2}>
+                    Host-Apportioned (Split-Sourced)
+                  </td>
+                </tr>
+                {result.homeCompensation.annualBonus > 0 && (
+                  <tr className="border-b border-slate-100">
+                    <td className="py-2 text-slate-500 pl-4 text-xs">
+                      Bonus Host-Taxable ({(ss.bonus.hostRatio * 100).toFixed(1)}% &mdash; {ss.bonus.overlapDays}/{ss.bonus.performancePeriodDays} days)
+                    </td>
+                    <td className="py-2 text-right text-amber-600 text-xs font-medium">{fmt(ss.bonus.hostTaxableAmount, currency)}</td>
+                  </tr>
+                )}
+                {result.homeCompensation.equityIncome > 0 && (
+                  <tr className="border-b border-slate-100">
+                    <td className="py-2 text-slate-500 pl-4 text-xs">
+                      Equity Host-Taxable ({(ss.equity.hostRatio * 100).toFixed(1)}% &mdash; {ss.equity.overlapDays}/{ss.equity.vestingPeriodDays} days)
+                    </td>
+                    <td className="py-2 text-right text-purple-600 text-xs font-medium">{fmt(ss.equity.hostTaxableAmount, currency)}</td>
+                  </tr>
+                )}
+              </>
+            )}
+
             <tr className="border-b border-slate-200 bg-slate-50">
               <td className="py-2.5 text-slate-600 font-medium">Less: Hypothetical Tax</td>
               <td className="py-2.5 text-right font-medium text-red-600">({fmt(bs.hypoTax, currency)})</td>

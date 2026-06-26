@@ -331,6 +331,130 @@ console.log('\n=== Test 6: All Equity Types ===');
   }
 }
 
+// ── Test 7: Case 1 — US → UK (London) Split-Sourcing ──
+console.log('\n=== Test 7: US → UK Split-Sourcing (Case 1) ===');
+{
+  const benefits = getDefaultBenefits();
+  const input: EstimateInput = {
+    estimateName: 'Case 1: US → UK',
+    startDate: '2026-01-01',
+    durationMonths: 36,
+    projectionYears: 3,
+    homeCountryCode: 'US',
+    homeCityCode: 'NYC',
+    hostCountryCode: 'GB',
+    hostCityCode: 'LON',
+    currency: 'USD',
+    baseSalary: 85000,
+    annualBonus: 8000,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 20000,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'married_children',
+    numChildren: 2,
+    assignmentType: 'longTerm',
+    benefits,
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+    bonusPerformancePeriodStart: '2026-01-01',
+    bonusPerformancePeriodEnd: '2026-12-31',
+    equityVestingStart: '2024-04-06',
+    equityVestingEnd: '2027-04-05',
+  };
+
+  const result = computeEstimate(input);
+  assert(result !== null, 'Case 1: Result is not null');
+
+  if (result) {
+    const ss = result.splitSourcing;
+
+    // Bonus: 365/365 = 100%
+    assert(ss.bonus.performancePeriodDays === 365, `Case 1: Bonus period = 365 days (got ${ss.bonus.performancePeriodDays})`);
+    assert(ss.bonus.overlapDays === 365, `Case 1: Bonus overlap = 365 days (got ${ss.bonus.overlapDays})`);
+    assertRange(ss.bonus.hostRatio, 0.99, 1.01, 'Case 1: Bonus host ratio = 100%');
+    assert(ss.bonus.hostTaxableAmount === 8000, `Case 1: Bonus host-taxable = $8,000 (got ${ss.bonus.hostTaxableAmount})`);
+
+    // Equity: 460/1095 = 42.01% (6 Apr 2024 to 5 Apr 2027 = 1095 inclusive days; overlap 1 Jan 2026 to 5 Apr 2027 = 460 days)
+    assert(ss.equity.vestingPeriodDays === 1095, `Case 1: Equity vesting days = 1095 (got ${ss.equity.vestingPeriodDays})`);
+    assert(ss.equity.overlapDays === 460, `Case 1: Equity overlap = 460 days (got ${ss.equity.overlapDays})`);
+    assertRange(ss.equity.hostRatio, 0.4195, 0.4210, 'Case 1: Equity host ratio ≈ 42.01%');
+    assertRange(ss.equity.hostTaxableAmount, 8399, 8405, `Case 1: Equity host-taxable ≈ $8,402 (got ${ss.equity.hostTaxableAmount})`);
+
+    // Tax calculations should use split-sourced amounts
+    assert(result.hostTax.grossIncome > 0, 'Case 1: Host tax calculated');
+    assert(result.totalEstimatedCost > 0, 'Case 1: Total cost > 0');
+
+    console.log(`  Bonus host ratio: ${(ss.bonus.hostRatio * 100).toFixed(2)}%`);
+    console.log(`  Equity host ratio: ${(ss.equity.hostRatio * 100).toFixed(2)}%`);
+    console.log(`  Equity host-taxable: $${ss.equity.hostTaxableAmount}`);
+    console.log(`  Total cost: $${result.totalEstimatedCost.toLocaleString()}`);
+  }
+}
+
+// ── Test 8: Case 2 — DE → US (NYC) Split-Sourcing ──
+console.log('\n=== Test 8: DE → US Split-Sourcing (Case 2) ===');
+{
+  const benefits = getDefaultBenefits();
+  const input: EstimateInput = {
+    estimateName: 'Case 2: DE → US',
+    startDate: '2026-01-01',
+    durationMonths: 36,
+    projectionYears: 3,
+    homeCountryCode: 'DE',
+    homeCityCode: 'BER',
+    hostCountryCode: 'US',
+    hostCityCode: 'NYC',
+    currency: 'EUR',
+    baseSalary: 75000,
+    annualBonus: 10000,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 15000,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'married_children',
+    numChildren: 1,
+    assignmentType: 'longTerm',
+    benefits,
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+    bonusPerformancePeriodStart: '2026-01-01',
+    bonusPerformancePeriodEnd: '2026-12-31',
+    equityVestingStart: '2024-04-06',
+    equityVestingEnd: '2027-04-05',
+  };
+
+  const result = computeEstimate(input);
+  assert(result !== null, 'Case 2: Result is not null');
+
+  if (result) {
+    const ss = result.splitSourcing;
+
+    // Bonus: 365/365 = 100%
+    assert(ss.bonus.performancePeriodDays === 365, `Case 2: Bonus period = 365 days (got ${ss.bonus.performancePeriodDays})`);
+    assert(ss.bonus.overlapDays === 365, `Case 2: Bonus overlap = 365 days (got ${ss.bonus.overlapDays})`);
+    assertRange(ss.bonus.hostRatio, 0.99, 1.01, 'Case 2: Bonus host ratio = 100%');
+    assert(ss.bonus.hostTaxableAmount === 10000, `Case 2: Bonus host-taxable = €10,000 (got ${ss.bonus.hostTaxableAmount})`);
+
+    // Equity: 460/1095 = 42.01%
+    assert(ss.equity.vestingPeriodDays === 1095, `Case 2: Equity vesting days = 1095 (got ${ss.equity.vestingPeriodDays})`);
+    assert(ss.equity.overlapDays === 460, `Case 2: Equity overlap = 460 days (got ${ss.equity.overlapDays})`);
+    assertRange(ss.equity.hostRatio, 0.4195, 0.4210, 'Case 2: Equity host ratio ≈ 42.01%');
+    assertRange(ss.equity.hostTaxableAmount, 6298, 6305, `Case 2: Equity host-taxable ≈ €6,301 (got ${ss.equity.hostTaxableAmount})`);
+
+    // Tax calculations should use split-sourced amounts
+    assert(result.hostTax.grossIncome > 0, 'Case 2: Host tax calculated');
+    assert(result.totalEstimatedCost > 0, 'Case 2: Total cost > 0');
+
+    console.log(`  Bonus host ratio: ${(ss.bonus.hostRatio * 100).toFixed(2)}%`);
+    console.log(`  Equity host ratio: ${(ss.equity.hostRatio * 100).toFixed(2)}%`);
+    console.log(`  Equity host-taxable: €${ss.equity.hostTaxableAmount}`);
+    console.log(`  Total cost: €${result.totalEstimatedCost.toLocaleString()}`);
+  }
+}
+
 // ── Summary ──
 console.log(`\n${'='.repeat(50)}`);
 console.log(`RESULTS: ${passed} passed, ${failed} failed, ${passed + failed} total`);
