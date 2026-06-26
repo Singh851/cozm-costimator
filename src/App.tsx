@@ -746,13 +746,13 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function CurrencyInput({ value, onChange, currency, compact }: { value: number; onChange: (v: number) => void; currency: string; compact?: boolean }) {
   const sym = currencies.find(c => c.code === currency)?.symbol || '$';
   return (
-    <div className={`relative ${compact ? 'w-28' : ''}`}>
-      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">{sym}</span>
+    <div className={`relative ${compact ? 'w-32' : ''}`}>
+      <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none ${compact ? 'text-xs' : 'text-sm'}`}>{sym}</span>
       <input
         type="number"
         value={value || ''}
         onChange={e => onChange(+e.target.value)}
-        className={`input-field pl-6 ${compact ? 'text-xs py-1' : ''}`}
+        className={`input-field ${compact ? 'text-xs py-1 pl-7' : 'pl-8'}`}
         min={0}
       />
     </div>
