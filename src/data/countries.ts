@@ -5,6 +5,7 @@ export const countries: Country[] = [
     code: 'GB',
     name: 'United Kingdom',
     currency: ['GBP', '\u00a3'],
+    defaultFxToUSD: 1.27,
     federalBrackets: [
       { min: 0, max: 37700, rate: 0.20 },
       { min: 37700, max: 112570, rate: 0.40 },
@@ -16,6 +17,15 @@ export const countries: Country[] = [
     ssEmployeeRate: 0.08,
     ssEmployerRate: 0.138,
     ssCap: 50270,
+    ssBrackets: {
+      employee: [
+        { threshold: 12570, rate: 0.08, cap: 50270 },
+        { threshold: 50270, rate: 0.02 },
+      ],
+      employer: [
+        { threshold: 9100, rate: 0.138 },
+      ],
+    },
     avgTax: 0.28,
     cities: [
       { code: 'LON', name: 'London', housingMonthly: 3200, schoolingAnnual: 28000, colaIndex: 115, utilitiesMonthly: 280, transportMonthly: 180 },
@@ -28,6 +38,7 @@ export const countries: Country[] = [
     code: 'US',
     name: 'United States',
     currency: ['USD', '$'],
+    defaultFxToUSD: 1.0,
     federalBrackets: [
       { min: 0, max: 11925, rate: 0.10 },
       { min: 11925, max: 48475, rate: 0.12 },
@@ -83,6 +94,7 @@ export const countries: Country[] = [
     code: 'DE',
     name: 'Germany',
     currency: ['EUR', '\u20ac'],
+    defaultFxToUSD: 1.09,
     federalBrackets: [
       { min: 0, max: 11604, rate: 0 },
       { min: 11604, max: 17005, rate: 0.14 },
@@ -104,6 +116,7 @@ export const countries: Country[] = [
     code: 'NL',
     name: 'Netherlands',
     currency: ['EUR', '\u20ac'],
+    defaultFxToUSD: 1.09,
     federalBrackets: [
       { min: 0, max: 38098, rate: 0.3693 },
       { min: 38098, max: 75518, rate: 0.3693 },
@@ -123,6 +136,7 @@ export const countries: Country[] = [
     code: 'ES',
     name: 'Spain',
     currency: ['EUR', '\u20ac'],
+    defaultFxToUSD: 1.09,
     federalBrackets: [
       { min: 0, max: 12450, rate: 0.19 },
       { min: 12450, max: 20200, rate: 0.24 },
@@ -145,6 +159,7 @@ export const countries: Country[] = [
     code: 'FI',
     name: 'Finland',
     currency: ['EUR', '\u20ac'],
+    defaultFxToUSD: 1.09,
     federalBrackets: [
       { min: 0, max: 20500, rate: 0 },
       { min: 20500, max: 30500, rate: 0.06 },
@@ -166,6 +181,7 @@ export const countries: Country[] = [
     code: 'EE',
     name: 'Estonia',
     currency: ['EUR', '\u20ac'],
+    defaultFxToUSD: 1.09,
     federalBrackets: [
       { min: 0, max: Infinity, rate: 0.20 },
     ],
@@ -183,6 +199,7 @@ export const countries: Country[] = [
     code: 'LV',
     name: 'Latvia',
     currency: ['EUR', '\u20ac'],
+    defaultFxToUSD: 1.09,
     federalBrackets: [
       { min: 0, max: 20004, rate: 0.20 },
       { min: 20004, max: 78100, rate: 0.23 },
@@ -202,6 +219,7 @@ export const countries: Country[] = [
     code: 'LT',
     name: 'Lithuania',
     currency: ['EUR', '\u20ac'],
+    defaultFxToUSD: 1.09,
     federalBrackets: [
       { min: 0, max: 101094, rate: 0.20 },
       { min: 101094, max: Infinity, rate: 0.32 },
@@ -220,6 +238,7 @@ export const countries: Country[] = [
     code: 'GR',
     name: 'Greece',
     currency: ['EUR', '\u20ac'],
+    defaultFxToUSD: 1.09,
     federalBrackets: [
       { min: 0, max: 10000, rate: 0.09 },
       { min: 10000, max: 20000, rate: 0.22 },
@@ -241,6 +260,7 @@ export const countries: Country[] = [
     code: 'AU',
     name: 'Australia',
     currency: ['AUD', 'A$'],
+    defaultFxToUSD: 0.65,
     federalBrackets: [
       { min: 0, max: 18200, rate: 0 },
       { min: 18200, max: 45000, rate: 0.19 },
@@ -263,6 +283,7 @@ export const countries: Country[] = [
     code: 'SG',
     name: 'Singapore',
     currency: ['SGD', 'S$'],
+    defaultFxToUSD: 0.75,
     federalBrackets: [
       { min: 0, max: 20000, rate: 0 },
       { min: 20000, max: 30000, rate: 0.02 },
@@ -292,6 +313,7 @@ export const countries: Country[] = [
     code: 'HK',
     name: 'Hong Kong',
     currency: ['HKD', 'HK$'],
+    defaultFxToUSD: 0.128,
     federalBrackets: [
       { min: 0, max: 50000, rate: 0.02 },
       { min: 50000, max: 100000, rate: 0.06 },
@@ -313,6 +335,7 @@ export const countries: Country[] = [
     code: 'KR',
     name: 'South Korea',
     currency: ['KRW', '\u20a9'],
+    defaultFxToUSD: 0.00073,
     federalBrackets: [
       { min: 0, max: 14000000, rate: 0.06 },
       { min: 14000000, max: 50000000, rate: 0.15 },
@@ -337,6 +360,7 @@ export const countries: Country[] = [
     code: 'MY',
     name: 'Malaysia',
     currency: ['MYR', 'RM'],
+    defaultFxToUSD: 0.22,
     federalBrackets: [
       { min: 0, max: 5000, rate: 0 },
       { min: 5000, max: 20000, rate: 0.01 },
@@ -363,6 +387,7 @@ export const countries: Country[] = [
     code: 'BN',
     name: 'Brunei',
     currency: ['BND', 'B$'],
+    defaultFxToUSD: 0.75,
     federalBrackets: [
       { min: 0, max: Infinity, rate: 0 },
     ],
@@ -380,6 +405,7 @@ export const countries: Country[] = [
     code: 'CA',
     name: 'Canada',
     currency: ['CAD', 'C$'],
+    defaultFxToUSD: 0.73,
     federalBrackets: [
       { min: 0, max: 55867, rate: 0.15 },
       { min: 55867, max: 111733, rate: 0.205 },
@@ -409,6 +435,7 @@ export const countries: Country[] = [
     code: 'BR',
     name: 'Brazil',
     currency: ['BRL', 'R$'],
+    defaultFxToUSD: 0.18,
     federalBrackets: [
       { min: 0, max: 26963.20, rate: 0 },
       { min: 26963.20, max: 33919.80, rate: 0.075 },
@@ -430,6 +457,7 @@ export const countries: Country[] = [
     code: 'CL',
     name: 'Chile',
     currency: ['CLP', 'CLP$'],
+    defaultFxToUSD: 0.001,
     federalBrackets: [
       { min: 0, max: 8952240, rate: 0 },
       { min: 8952240, max: 19893840, rate: 0.04 },
@@ -454,6 +482,7 @@ export const countries: Country[] = [
     code: 'CO',
     name: 'Colombia',
     currency: ['COP', 'COP$'],
+    defaultFxToUSD: 0.00024,
     federalBrackets: [
       { min: 0, max: 46580000, rate: 0 },
       { min: 46580000, max: 72640000, rate: 0.19 },
@@ -476,6 +505,7 @@ export const countries: Country[] = [
     code: 'CR',
     name: 'Costa Rica',
     currency: ['CRC', '\u20a1'],
+    defaultFxToUSD: 0.0019,
     federalBrackets: [
       { min: 0, max: 4620000, rate: 0 },
       { min: 4620000, max: 6888000, rate: 0.10 },
@@ -497,6 +527,7 @@ export const countries: Country[] = [
     code: 'PA',
     name: 'Panama',
     currency: ['USD', '$'],
+    defaultFxToUSD: 1.0,
     federalBrackets: [
       { min: 0, max: 11000, rate: 0 },
       { min: 11000, max: 50000, rate: 0.15 },
@@ -516,6 +547,7 @@ export const countries: Country[] = [
     code: 'PE',
     name: 'Peru',
     currency: ['PEN', 'S/.'],
+    defaultFxToUSD: 0.27,
     federalBrackets: [
       { min: 0, max: 24150, rate: 0.08 },
       { min: 24150, max: 96600, rate: 0.14 },
@@ -537,6 +569,7 @@ export const countries: Country[] = [
     code: 'EC',
     name: 'Ecuador',
     currency: ['USD', '$'],
+    defaultFxToUSD: 1.0,
     federalBrackets: [
       { min: 0, max: 11722, rate: 0 },
       { min: 11722, max: 14930, rate: 0.05 },
@@ -562,6 +595,7 @@ export const countries: Country[] = [
     code: 'BO',
     name: 'Bolivia',
     currency: ['BOB', 'Bs.'],
+    defaultFxToUSD: 0.14,
     federalBrackets: [
       { min: 0, max: Infinity, rate: 0.13 },
     ],
@@ -579,6 +613,7 @@ export const countries: Country[] = [
     code: 'UY',
     name: 'Uruguay',
     currency: ['UYU', '$U'],
+    defaultFxToUSD: 0.024,
     federalBrackets: [
       { min: 0, max: 468780, rate: 0 },
       { min: 468780, max: 670200, rate: 0.10 },
@@ -600,6 +635,11 @@ export const countries: Country[] = [
     ],
   },
 ];
+
+export function getFxToUSD(currencyCode: string): number {
+  const match = countries.find(c => c.currency[0] === currencyCode);
+  return match?.defaultFxToUSD || 1.0;
+}
 
 export function getCountry(code: string): Country | undefined {
   return countries.find(c => c.code === code);

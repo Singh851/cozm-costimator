@@ -18,6 +18,23 @@ export function calculateBracketTax(income: number, brackets: TaxBracket[]): { t
   return { total, breakdown };
 }
 
+export function calculateBracketSS(
+  grossIncome: number,
+  brackets: { threshold: number; rate: number; cap?: number }[],
+): number {
+  let total = 0;
+  for (let i = 0; i < brackets.length; i++) {
+    const { threshold, rate, cap } = brackets[i];
+    if (grossIncome <= threshold) continue;
+    const ceiling = cap != null ? cap : (i + 1 < brackets.length ? brackets[i + 1].threshold : Infinity);
+    const taxableInBand = Math.min(grossIncome, ceiling) - threshold;
+    if (taxableInBand > 0) {
+      total += taxableInBand * rate;
+    }
+  }
+  return total;
+}
+
 export function calculateTax(
   grossIncome: number,
   country: Country,
@@ -60,10 +77,18 @@ export function calculateTax(
 
   const totalIncomeTax = Math.max(0, federal.total - childCredits + stateTax + localTax);
 
-  // Social security — OASDI (capped) + Medicare (uncapped) when split is available
-  const ssCappedIncome = country.ssCap > 0 ? Math.min(grossIncome, country.ssCap) : grossIncome;
-  let ssEmployee = ssCappedIncome * country.ssEmployeeRate;
-  let ssEmployer = ssCappedIncome * country.ssEmployerRate;
+  // Social security — bracket-based (e.g. UK NIC) or flat rate (capped)
+  let ssEmployee: number;
+  let ssEmployer: number;
+
+  if (country.ssBrackets) {
+    ssEmployee = calculateBracketSS(grossIncome, country.ssBrackets.employee);
+    ssEmployer = calculateBracketSS(grossIncome, country.ssBrackets.employer);
+  } else {
+    const ssCappedIncome = country.ssCap > 0 ? Math.min(grossIncome, country.ssCap) : grossIncome;
+    ssEmployee = ssCappedIncome * country.ssEmployeeRate;
+    ssEmployer = ssCappedIncome * country.ssEmployerRate;
+  }
 
   if (country.medicareEmployeeRate != null) {
     ssEmployee += grossIncome * country.medicareEmployeeRate;

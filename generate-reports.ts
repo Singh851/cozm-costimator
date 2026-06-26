@@ -238,7 +238,7 @@ function generateReport(input: EstimateInput, caseLabel: string): string {
         <tr><td class="label">Social Security</td><td>${input.ssStrategy === 'home' ? 'Home country only (A1/Certificate of Coverage assumed)' : input.ssStrategy === 'host' ? 'Host country only' : 'Dual liability (both countries)'}</td></tr>
         <tr><td class="label">Bonus Sourcing</td><td>Calendar-year workday allocation per IRC &sect;861 / HMRC practice</td></tr>
         <tr><td class="label">Equity Sourcing</td><td>Day-count during vesting period per ITEPA 2003 Part 7 / IRC &sect;861</td></tr>
-        <tr><td class="label">Exchange Rate</td><td>Not applied - all amounts in reporting currency (${cur})</td></tr>
+        <tr><td class="label">Exchange Rate</td><td>Tax brackets applied in local currency via FX conversion (reporting: ${cur})</td></tr>
         <tr><td class="label">One-off Costs</td><td>Immigration and relocation costs are one-off; shown annualised in breakdown</td></tr>
         <tr><td class="label">Tax Data Sources</td><td>IRS Rev. Proc. 2024-40 (US 2025); HMRC 2025/26 rates; EStG &sect;32a (DE 2024)</td></tr>
       </tbody>

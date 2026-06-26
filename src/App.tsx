@@ -1,12 +1,14 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { EstimateInput } from './types';
-import { countries } from './data/countries';
+import { countries, getFxToUSD } from './data/countries';
 import { getDefaultBenefits, assignmentTypes, equityTypes, vestingSchedules, familyStatuses, currencies } from './data/benefits';
 import { computeEstimate } from './engine/costEstimate';
 import { CostCharts } from './components/Charts';
 import { TaxBreakdown } from './components/TaxBreakdown';
 import { BalanceSheet } from './components/BalanceSheet';
 import { PrintReport } from './components/PrintReport';
+
+const sortedCountries = countries.slice().sort((a, b) => a.name.localeCompare(b.name));
 
 const fmt = (n: number, currency?: string) => {
   const c = currencies.find(cc => cc.code === currency);
@@ -242,6 +244,34 @@ function InputPanel({
             {assignmentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </Field>
+        {homeCountry && hostCountry && (
+          <div className="bg-sky-50 rounded-lg p-3 border border-sky-200">
+            <label className="text-sm font-semibold text-sky-800 block mb-2">Exchange Rates</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-sky-600 mb-1 block">1 {homeCountry.currency[0]} = {input.currency}</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={input.homeExchangeRate ?? +(homeCountry.defaultFxToUSD / getFxToUSD(input.currency)).toFixed(4)}
+                  onChange={e => update({ homeExchangeRate: +e.target.value || undefined })}
+                  className="input-field text-xs"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-sky-600 mb-1 block">1 {hostCountry.currency[0]} = {input.currency}</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={input.hostExchangeRate ?? +(hostCountry.defaultFxToUSD / getFxToUSD(input.currency)).toFixed(4)}
+                  onChange={e => update({ hostExchangeRate: +e.target.value || undefined })}
+                  className="input-field text-xs"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-sky-500 mt-1">Tax brackets are applied in local currency, then converted back to {input.currency}</p>
+          </div>
+        )}
       </Card>
 
       {/* Locations */}
@@ -253,7 +283,7 @@ function InputPanel({
               <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Home</span>
             </div>
             <select value={input.homeCountryCode} onChange={e => handleCountryChange('homeCountryCode', e.target.value)} className="input-field">
-              {countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+              {sortedCountries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
             </select>
             <select value={input.homeCityCode} onChange={e => update({ homeCityCode: e.target.value })} className="input-field">
               {homeCountry?.cities.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
@@ -265,7 +295,7 @@ function InputPanel({
               <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Host</span>
             </div>
             <select value={input.hostCountryCode} onChange={e => handleCountryChange('hostCountryCode', e.target.value)} className="input-field">
-              {countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+              {sortedCountries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
             </select>
             <select value={input.hostCityCode} onChange={e => update({ hostCityCode: e.target.value })} className="input-field">
               {hostCountry?.cities.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
@@ -383,33 +413,58 @@ function InputPanel({
             {input.equityType === 'phantom' && ' Phantom equity is always taxed as ordinary income.'}
           </p>
         </div>
+
+        {/* One-off Payment */}
+        <div className="bg-rose-50 rounded-lg p-3 border border-rose-200">
+          <label className="text-sm font-semibold text-rose-800 block mb-2">One-off Payment (optional)</label>
+          <CurrencyInput value={input.oneOffPayment || 0} onChange={v => update({ oneOffPayment: v || undefined })} currency={input.currency} />
+          <p className="text-xs text-rose-600 mt-1">Enter a lump sum to see the marginal tax cost (e.g. sign-on bonus, relocation lump sum)</p>
+        </div>
       </Card>
 
       {/* Assignment Benefits */}
       <Card title="Assignment Benefits" subtitle="Toggle and customise allowances">
         <div className="space-y-2">
-          {Object.values(input.benefits).map(benefit => (
-            <div key={benefit.id} className={`flex items-start gap-3 p-2.5 rounded-lg border transition-colors ${benefit.enabled ? 'border-[#40AEBC]/30 bg-[#40AEBC]/5' : 'border-slate-100 bg-slate-50'}`}>
-              <div
-                className={`toggle-switch mt-0.5 shrink-0 ${benefit.enabled ? 'active' : ''}`}
-                onClick={() => updateBenefit(benefit.id, { enabled: !benefit.enabled })}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <span className={`text-sm font-medium ${benefit.enabled ? 'text-slate-800' : 'text-slate-400'}`}>{benefit.label}</span>
-                  {benefit.enabled && (
-                    <CurrencyInput
-                      value={benefit.annualAmount}
-                      onChange={v => updateBenefit(benefit.id, { annualAmount: v })}
-                      currency={input.currency}
-                      compact
-                    />
-                  )}
+          {Object.values(input.benefits).map(benefit => {
+            const hostCity = hostCountry?.cities.find(c => c.code === input.hostCityCode);
+            const numChildren = input.familyStatus === 'married_children' ? (input.numChildren || 1) : 0;
+            const colaIdx = hostCity ? (hostCity.colaIndex > 100 ? (hostCity.colaIndex - 100) / 100 : 0) : 0;
+            const defaults: Record<string, number> = {
+              includeHousing: (hostCity?.housingMonthly || 0) * 12,
+              includeCola: Math.round(input.baseSalary * colaIdx),
+              includeSchooling: (hostCity?.schoolingAnnual || 0) * numChildren,
+              includeHomeLeave: 5000,
+              includeTransportation: (hostCity?.transportMonthly || 0) * 12,
+              includeUtilities: (hostCity?.utilitiesMonthly || 0) * 12,
+              includeImmigration: 3500,
+              includeRelocation: 15000,
+              includeTaxPreparation: 5000,
+            };
+            const defaultVal = defaults[benefit.id];
+            return (
+              <div key={benefit.id} className={`flex items-start gap-3 p-2.5 rounded-lg border transition-colors ${benefit.enabled ? 'border-[#40AEBC]/30 bg-[#40AEBC]/5' : 'border-slate-100 bg-slate-50'}`}>
+                <div
+                  className={`toggle-switch mt-0.5 shrink-0 ${benefit.enabled ? 'active' : ''}`}
+                  onClick={() => updateBenefit(benefit.id, { enabled: !benefit.enabled })}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-medium ${benefit.enabled ? 'text-slate-800' : 'text-slate-400'}`}>{benefit.label}</span>
+                    {benefit.enabled && (
+                      <CurrencyInput
+                        value={benefit.annualAmount}
+                        onChange={v => updateBenefit(benefit.id, { annualAmount: v })}
+                        currency={input.currency}
+                        compact
+                        placeholder={defaultVal ? defaultVal.toLocaleString() : undefined}
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{benefit.description}</p>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">{benefit.description}</p>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
 
@@ -503,12 +558,11 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
           {/* Tax & SS Section */}
           <SectionHeader label="Taxes & Social Security" />
           <SummaryRow label="Gross-up on Allowances" value={result.grossUp.totalGrossUp} currency={currency} />
-          <SummaryRow label="Home Tax (EE)" value={result.homeTax.totalIncomeTax} currency={currency} muted />
-          <SummaryRow label="Host Tax (EE)" value={result.hostTax.totalIncomeTax} currency={currency} />
-          <SummaryRow label="Hypo Tax Deduction" value={-result.hypoTax.totalIncomeTax} currency={currency} />
-          <SummaryRow label="Home SS (EE)" value={result.homeTax.ssEmployee} currency={currency} muted />
+          <SummaryRow label="Host Tax Gross-Up" value={result.hostTax.totalIncomeTax - result.hypoTax.totalIncomeTax} currency={currency} />
           <SummaryRow label="Home SS (ER)" value={result.homeTax.ssEmployer} currency={currency} />
-          <SummaryRow label="Host SS (ER)" value={result.hostTax.ssEmployer} currency={currency} />
+          {result.input.ssStrategy !== 'home' && (
+            <SummaryRow label="Host SS (ER)" value={result.hostTax.ssEmployer} currency={currency} />
+          )}
 
           {/* Total */}
           <div className="border-t-2 border-[#40AEBC] pt-3 mt-3">
@@ -595,6 +649,41 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
                 </p>
               </div>
             )}
+          </div>
+        </Card>
+      )}
+
+      {/* One-off Payment Analysis */}
+      {result.oneOffAnalysis && (
+        <Card title="One-off Payment Analysis">
+          <div className="bg-rose-50 rounded-lg p-4 border border-rose-200">
+            <div className="grid grid-cols-2 gap-4 mb-3">
+              <div>
+                <p className="text-xs text-rose-600 font-medium">Payment Amount</p>
+                <p className="text-lg font-semibold text-rose-800">{fmt(result.oneOffAnalysis.payment, currency)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-rose-600 font-medium">Total Employer Cost</p>
+                <p className="text-lg font-semibold text-rose-800">{fmt(result.oneOffAnalysis.totalCost, currency)}</p>
+              </div>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-rose-700">Marginal Tax Rate</span>
+                <span className="font-medium text-rose-800">{(result.oneOffAnalysis.marginalRate * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-rose-700">Marginal Tax</span>
+                <span className="font-medium text-rose-800">{fmt(result.oneOffAnalysis.marginalTax, currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-rose-700">Marginal Employer SS</span>
+                <span className="font-medium text-rose-800">{fmt(result.oneOffAnalysis.marginalSS, currency)}</span>
+              </div>
+            </div>
+            <p className="text-xs text-rose-500 mt-3">
+              Marginal cost of a one-off payment on top of regular compensation, using host country tax rates.
+            </p>
           </div>
         </Card>
       )}
@@ -743,17 +832,18 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function CurrencyInput({ value, onChange, currency, compact }: { value: number; onChange: (v: number) => void; currency: string; compact?: boolean }) {
+function CurrencyInput({ value, onChange, currency, compact, placeholder }: { value: number; onChange: (v: number) => void; currency: string; compact?: boolean; placeholder?: string }) {
   const sym = currencies.find(c => c.code === currency)?.symbol || '$';
   return (
     <div className={`relative ${compact ? 'w-32' : ''}`}>
-      <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none ${compact ? 'text-xs' : 'text-sm'}`}>{sym}</span>
+      <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-mono ${compact ? 'text-[10px]' : 'text-xs'}`}>{sym}</span>
       <input
         type="number"
         value={value || ''}
         onChange={e => onChange(+e.target.value)}
-        className={`input-field ${compact ? 'text-xs py-1 pl-7' : 'pl-8'}`}
+        className={`input-field ${compact ? 'text-xs py-1 pl-7' : 'pl-9'}`}
         min={0}
+        placeholder={placeholder}
       />
     </div>
   );

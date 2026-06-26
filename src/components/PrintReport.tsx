@@ -38,17 +38,39 @@ export function PrintReport({
       `<tr><td>${item.category} <span style="font-size:9px;color:#94a3b8">(one-off)</span></td><td class="amt">${fmt(item.amount, cur)}</td><td class="amt pct">${item.percentage.toFixed(1)}%</td></tr>`
     ).join('');
 
-    // Year-by-year breakdown (flat, no inflation)
+    // Year-by-year breakdown (flat, no inflation) — detailed line items
     const years = Math.ceil(result.input.durationMonths / 12);
+    const employerSSCost = result.input.ssStrategy === 'home' ? result.homeTax.ssEmployer
+      : result.input.ssStrategy === 'host' ? result.hostTax.ssEmployer
+      : result.homeTax.ssEmployer + result.hostTax.ssEmployer;
+    const recurringAnnual = result.homeCompensation.totalGross
+      + result.benefits.totalAllowances
+      - result.benefits.immigration - result.benefits.relocation
+      + result.grossUp.totalGrossUp + employerSSCost;
+    const oneOffTotal = result.benefits.immigration + result.benefits.relocation;
+
     let yearRows = '';
+    let durationTotal = 0;
     for (let i = 0; i < years; i++) {
-      const comp = result.homeCompensation.totalGross;
-      const allow = result.benefits.totalAllowances;
-      const taxSS = result.grossUp.totalGrossUp + (result.input.ssStrategy === 'home' ? result.homeTax.ssEmployer : result.hostTax.ssEmployer);
-      const total = result.totalEstimatedCost;
-      yearRows += `<tr><td>Year ${i + 1}</td><td class="amt">${fmt(comp, cur)}</td><td class="amt">${fmt(allow, cur)}</td><td class="amt">${fmt(taxSS, cur)}</td><td class="amt" style="font-weight:600">${fmt(total, cur)}</td></tr>`;
+      const yearTotal = recurringAnnual + (i === 0 ? oneOffTotal : 0);
+      durationTotal += yearTotal;
+      yearRows += `<tr style="background:#f0fafb"><td colspan="2" style="font-weight:600;padding-top:8px">Year ${i + 1}</td></tr>`;
+      yearRows += `<tr><td class="indent">Base Salary</td><td class="amt">${fmt(result.homeCompensation.baseSalary, cur)}</td></tr>`;
+      if (result.homeCompensation.annualBonus > 0) yearRows += `<tr><td class="indent">Annual Bonus</td><td class="amt">${fmt(result.homeCompensation.annualBonus, cur)}</td></tr>`;
+      if (result.homeCompensation.equityIncome > 0) yearRows += `<tr><td class="indent">Equity Income</td><td class="amt">${fmt(result.homeCompensation.equityIncome, cur)}</td></tr>`;
+      if (result.benefits.housing > 0) yearRows += `<tr><td class="indent">Housing</td><td class="amt">${fmt(result.benefits.housing, cur)}</td></tr>`;
+      if (result.benefits.cola > 0) yearRows += `<tr><td class="indent">COLA</td><td class="amt">${fmt(result.benefits.cola, cur)}</td></tr>`;
+      if (result.benefits.education > 0) yearRows += `<tr><td class="indent">Education</td><td class="amt">${fmt(result.benefits.education, cur)}</td></tr>`;
+      if (result.benefits.homeLeave > 0) yearRows += `<tr><td class="indent">Home Leave</td><td class="amt">${fmt(result.benefits.homeLeave, cur)}</td></tr>`;
+      if (result.benefits.transportation > 0) yearRows += `<tr><td class="indent">Transportation</td><td class="amt">${fmt(result.benefits.transportation, cur)}</td></tr>`;
+      if (result.benefits.utilities > 0) yearRows += `<tr><td class="indent">Utilities</td><td class="amt">${fmt(result.benefits.utilities, cur)}</td></tr>`;
+      if (result.benefits.taxPreparation > 0) yearRows += `<tr><td class="indent">Tax Preparation</td><td class="amt">${fmt(result.benefits.taxPreparation, cur)}</td></tr>`;
+      if (i === 0 && result.benefits.immigration > 0) yearRows += `<tr><td class="indent">Immigration (one-off)</td><td class="amt">${fmt(result.benefits.immigration, cur)}</td></tr>`;
+      if (i === 0 && result.benefits.relocation > 0) yearRows += `<tr><td class="indent">Relocation (one-off)</td><td class="amt">${fmt(result.benefits.relocation, cur)}</td></tr>`;
+      yearRows += `<tr><td class="indent">Gross-up</td><td class="amt">${fmt(result.grossUp.totalGrossUp, cur)}</td></tr>`;
+      yearRows += `<tr><td class="indent">Employer SS</td><td class="amt">${fmt(employerSSCost, cur)}</td></tr>`;
+      yearRows += `<tr class="total-row"><td style="font-weight:600">Year ${i + 1} Total</td><td class="amt" style="font-weight:600">${fmt(yearTotal, cur)}</td></tr>`;
     }
-    const durationTotal = result.totalEstimatedCost * (result.input.durationMonths / 12);
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -189,15 +211,27 @@ export function PrintReport({
   </div>
 
   <div class="section">
-    <h2 class="section-title">Annual Cost Projection</h2>
+    <h2 class="section-title">Annual Cost Projection (Detailed)</h2>
     <table>
-      <thead><tr><th>Period</th><th>Compensation</th><th>Allowances</th><th>Tax & SS</th><th>Total</th></tr></thead>
+      <thead><tr><th>Line Item</th><th>Amount</th></tr></thead>
       <tbody>
         ${yearRows}
-        <tr class="grand-total"><td>Assignment Total</td><td></td><td></td><td></td><td class="amt">${fmt(durationTotal, cur)}</td></tr>
+        <tr class="grand-total"><td>Assignment Total (${result.input.durationMonths} months)</td><td class="amt">${fmt(durationTotal, cur)}</td></tr>
       </tbody>
     </table>
   </div>
+
+  ${result.oneOffAnalysis ? `
+  <div class="section">
+    <h2 class="section-title">One-off Payment Analysis</h2>
+    <table>
+      <tr><td class="label">Payment Amount</td><td class="amt">${fmt(result.oneOffAnalysis.payment, cur)}</td></tr>
+      <tr><td class="label">Marginal Tax Rate</td><td class="amt">${(result.oneOffAnalysis.marginalRate * 100).toFixed(1)}%</td></tr>
+      <tr><td class="label">Marginal Tax</td><td class="amt">${fmt(result.oneOffAnalysis.marginalTax, cur)}</td></tr>
+      <tr><td class="label">Marginal Employer SS</td><td class="amt">${fmt(result.oneOffAnalysis.marginalSS, cur)}</td></tr>
+      <tr class="total-row"><td class="label">Total Employer Cost of One-off</td><td class="amt" style="font-weight:700;color:#40AEBC">${fmt(result.oneOffAnalysis.totalCost, cur)}</td></tr>
+    </table>
+  </div>` : ''}
 
   <div class="section">
     <h2 class="section-title">Assumptions & Methodology</h2>
@@ -206,7 +240,7 @@ export function PrintReport({
       <tr><td class="label">Filing Status</td><td>${filingStatus}</td></tr>
       <tr><td class="label">Tax Philosophy</td><td>${result.input.hypoTaxPhilosophy === 'taxEqualization' ? 'Tax Equalisation' : result.input.hypoTaxPhilosophy === 'taxProtection' ? 'Tax Protection' : 'Stay-at-Home'}</td></tr>
       <tr><td class="label">Social Security</td><td>${result.input.ssStrategy === 'home' ? 'Home country only (A1/CoC assumed)' : result.input.ssStrategy === 'host' ? 'Host country only' : 'Dual liability'}</td></tr>
-      <tr><td class="label">Exchange Rate</td><td>Not applied - amounts in reporting currency (${cur})</td></tr>
+      <tr><td class="label">Exchange Rate</td><td>Tax brackets applied in local currency via FX conversion (reporting: ${cur})</td></tr>
       <tr><td class="label">Tax Data</td><td>IRS Rev. Proc. 2024-40 (US 2025); HMRC 2025/26; EStG &sect;32a (DE 2024)</td></tr>
     </table>
   </div>

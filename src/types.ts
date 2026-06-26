@@ -25,6 +25,7 @@ export interface Country {
   code: string;
   name: string;
   currency: [string, string]; // [code, symbol]
+  defaultFxToUSD: number; // 1 unit of this currency = X USD
   federalBrackets: TaxBracket[];
   marriedBrackets?: TaxBracket[];
   standardDeduction: number;
@@ -34,6 +35,10 @@ export interface Country {
   ssEmployeeRate: number;
   ssEmployerRate: number;
   ssCap: number;
+  ssBrackets?: {
+    employee: { threshold: number; rate: number; cap?: number }[];
+    employer: { threshold: number; rate: number; cap?: number }[];
+  };
   medicareEmployeeRate?: number; // uncapped (US: 1.45%)
   medicareEmployerRate?: number; // uncapped (US: 1.45%)
   avgTax: number;
@@ -75,6 +80,9 @@ export interface EstimateInput {
   benefits: Record<string, BenefitConfig>;
   hypoTaxPhilosophy: 'taxEqualization' | 'taxProtection' | 'stayAtHome';
   ssStrategy: 'home' | 'host' | 'both';
+  homeExchangeRate?: number; // 1 home currency = X reporting currency
+  hostExchangeRate?: number; // 1 host currency = X reporting currency
+  oneOffPayment?: number; // one-off payment for marginal tax analysis
   bonusPerformancePeriodStart?: string;
   bonusPerformancePeriodEnd?: string;
   equityVestingStart?: string;
@@ -157,4 +165,11 @@ export interface CostEstimateResult {
   employerCost: number;
   employeeCost: number;
   costBreakdown: { category: string; amount: number; percentage: number; oneOff?: boolean }[];
+  oneOffAnalysis?: {
+    payment: number;
+    marginalTax: number;
+    marginalRate: number;
+    marginalSS: number;
+    totalCost: number;
+  };
 }

@@ -1,7 +1,28 @@
-import type { EstimateInput, CostEstimateResult } from '../types';
-import { getCountry, getCity, getState } from '../data/countries';
+import type { EstimateInput, CostEstimateResult, TaxResult } from '../types';
+import { getCountry, getCity, getState, getFxToUSD } from '../data/countries';
 import { calculateTax, calculateHypoTax, calculateGrossUp } from './tax';
 import { computeSplitSourcing } from './splitSourcing';
+
+function convertTaxResult(result: TaxResult, fxRate: number): TaxResult {
+  if (fxRate === 1) return result;
+  return {
+    grossIncome: result.grossIncome * fxRate,
+    federalTax: result.federalTax * fxRate,
+    stateTax: result.stateTax * fxRate,
+    localTax: result.localTax * fxRate,
+    totalIncomeTax: result.totalIncomeTax * fxRate,
+    effectiveRate: result.effectiveRate,
+    ssEmployee: result.ssEmployee * fxRate,
+    ssEmployer: result.ssEmployer * fxRate,
+    deductions: result.deductions * fxRate,
+    taxableIncome: result.taxableIncome * fxRate,
+    childCredits: result.childCredits * fxRate,
+    brackets: result.brackets.map(b => ({
+      bracket: b.bracket,
+      taxInBracket: b.taxInBracket * fxRate,
+    })),
+  };
+}
 
 export function computeEstimate(input: EstimateInput): CostEstimateResult | null {
   const homeCountry = getCountry(input.homeCountryCode);
@@ -13,6 +34,15 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
 
   const homeState = getState(input.homeCountryCode, input.homeCityCode);
   const hostState = getState(input.hostCountryCode, input.hostCityCode);
+
+  // --- FX Rates ---
+  // homeFx = how many reporting-currency units per 1 home-currency unit
+  // hostFx = how many reporting-currency units per 1 host-currency unit
+  const reportingFxToUSD = getFxToUSD(input.currency);
+  const defaultHomeFx = homeCountry.defaultFxToUSD / reportingFxToUSD;
+  const defaultHostFx = hostCountry.defaultFxToUSD / reportingFxToUSD;
+  const homeFx = input.homeExchangeRate ?? defaultHomeFx;
+  const hostFx = input.hostExchangeRate ?? defaultHostFx;
 
   // --- Compensation ---
   const baseSalary = input.baseSalary || 0;
@@ -72,52 +102,40 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const bonusHostTaxable = splitSourcing.bonus.hostTaxableAmount;
   const equityHostTaxable = splitSourcing.equity.hostTaxableAmount;
 
-  // --- Tax Calculations ---
+  // --- Tax Calculations (with FX conversion) ---
   const homeStateTaxRate = homeState?.stateTaxRate || 0;
   const homeLocalTaxRate = homeState?.localTaxRate || 0;
   const hostStateTaxRate = hostState?.stateTaxRate || 0;
   const hostLocalTaxRate = hostState?.localTaxRate || 0;
 
   // Home country tax on total compensation (worldwide)
-  const homeTax = calculateTax(
-    totalGrossComp,
-    homeCountry,
-    homeStateTaxRate,
-    homeLocalTaxRate,
-    numChildren,
-    isMarried,
-  );
+  // Convert reporting currency → home local currency, calculate, convert back
+  const homeLocalIncome = totalGrossComp / homeFx;
+  const homeTaxLocal = calculateTax(homeLocalIncome, homeCountry, homeStateTaxRate, homeLocalTaxRate, numChildren, isMarried);
+  const homeTax = convertTaxResult(homeTaxLocal, homeFx);
 
   // Host country tax: base salary + split-sourced bonus/equity + allowances
+  // Convert reporting currency → host local currency, calculate, convert back
   const hostTaxableIncome = baseSalary + bonusHostTaxable + equityHostTaxable + totalAllowances;
-  const hostTax = calculateTax(
-    hostTaxableIncome,
-    hostCountry,
-    hostStateTaxRate,
-    hostLocalTaxRate,
-    numChildren,
-    isMarried,
-  );
+  const hostLocalIncome = hostTaxableIncome / hostFx;
+  const hostTaxLocal = calculateTax(hostLocalIncome, hostCountry, hostStateTaxRate, hostLocalTaxRate, numChildren, isMarried);
 
-  // Hypothetical tax (what employee would have paid at home)
-  const hypoTax = calculateHypoTax(
-    totalGrossComp,
-    homeCountry,
-    homeStateTaxRate,
-    homeLocalTaxRate,
-    input.hypoTaxPhilosophy,
-    numChildren,
-    isMarried,
-  );
-
-  // --- Gross-up ---
-  // Use top applicable bracket rate + state + local as marginal rate (effective rate already includes state/local)
+  // Compute marginal rate from local-currency result (before FX conversion)
   const hostBrackets = (isMarried && hostCountry.marriedBrackets) ? hostCountry.marriedBrackets : hostCountry.federalBrackets;
   const topFederalRate = hostBrackets.length > 0
-    ? hostBrackets.find(b => hostTax.taxableIncome <= b.max)?.rate || hostBrackets[hostBrackets.length - 1].rate
+    ? hostBrackets.find(b => hostTaxLocal.taxableIncome <= b.max)?.rate || hostBrackets[hostBrackets.length - 1].rate
     : 0;
   const hostMarginalRate = topFederalRate + (hostStateTaxRate || 0) + (hostLocalTaxRate || 0);
   const effectiveMarginalRate = Math.min(hostMarginalRate, 0.6); // cap at 60%
+
+  const hostTax = convertTaxResult(hostTaxLocal, hostFx);
+
+  // Hypothetical tax (what employee would have paid at home)
+  const hypoLocalIncome = totalGrossComp / homeFx;
+  const hypoTaxLocal = calculateHypoTax(hypoLocalIncome, homeCountry, homeStateTaxRate, homeLocalTaxRate, input.hypoTaxPhilosophy, numChildren, isMarried);
+  const hypoTax = convertTaxResult(hypoTaxLocal, homeFx);
+
+  // --- Gross-up ---
   const grossUpResult = calculateGrossUp(totalAllowances, effectiveMarginalRate);
 
   // --- Social Security ---
@@ -132,7 +150,6 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const totalHostPackage = netHomeComp + totalAllowances;
 
   // --- Total Employer Cost ---
-  // Salary + Bonus + Equity + Allowances + Gross-up + Employer SS + Tax Prep + Immigration + Relocation
   const employerSSCost = input.ssStrategy === 'home' ? homeSS_ER
     : input.ssStrategy === 'host' ? hostSS_ER
     : homeSS_ER + hostSS_ER;
@@ -164,6 +181,28 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     ...item,
     percentage: totalEstimatedCost > 0 ? (item.amount / totalEstimatedCost) * 100 : 0,
   }));
+
+  // --- One-off Payment Marginal Tax Analysis (G9) ---
+  let oneOffAnalysis: CostEstimateResult['oneOffAnalysis'];
+  const oneOffPayment = input.oneOffPayment || 0;
+  if (oneOffPayment > 0) {
+    // Calculate host tax with and without the one-off to get marginal impact
+    const withOneOffLocalIncome = (hostTaxableIncome + oneOffPayment) / hostFx;
+    const withOneOffTaxLocal = calculateTax(withOneOffLocalIncome, hostCountry, hostStateTaxRate, hostLocalTaxRate, numChildren, isMarried);
+    const withOneOffTax = convertTaxResult(withOneOffTaxLocal, hostFx);
+
+    const marginalTax = withOneOffTax.totalIncomeTax - hostTax.totalIncomeTax;
+    const marginalSS = withOneOffTax.ssEmployer - hostTax.ssEmployer;
+    const marginalRate = oneOffPayment > 0 ? marginalTax / oneOffPayment : 0;
+
+    oneOffAnalysis = {
+      payment: oneOffPayment,
+      marginalTax,
+      marginalRate,
+      marginalSS,
+      totalCost: oneOffPayment + marginalTax + marginalSS,
+    };
+  }
 
   return {
     input,
@@ -209,5 +248,6 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     employerCost: totalEstimatedCost,
     employeeCost: netHomeComp,
     costBreakdown,
+    oneOffAnalysis,
   };
 }
