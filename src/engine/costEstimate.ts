@@ -107,10 +107,16 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     homeLocalTaxRate,
     input.hypoTaxPhilosophy,
     numChildren,
+    isMarried,
   );
 
   // --- Gross-up ---
-  const hostMarginalRate = hostTax.effectiveRate + (hostStateTaxRate || 0);
+  // Use top applicable bracket rate + state + local as marginal rate (effective rate already includes state/local)
+  const hostBrackets = (isMarried && hostCountry.marriedBrackets) ? hostCountry.marriedBrackets : hostCountry.federalBrackets;
+  const topFederalRate = hostBrackets.length > 0
+    ? hostBrackets.find(b => hostTax.taxableIncome <= b.max)?.rate || hostBrackets[hostBrackets.length - 1].rate
+    : 0;
+  const hostMarginalRate = topFederalRate + (hostStateTaxRate || 0) + (hostLocalTaxRate || 0);
   const effectiveMarginalRate = Math.min(hostMarginalRate, 0.6); // cap at 60%
   const grossUpResult = calculateGrossUp(totalAllowances, effectiveMarginalRate);
 
@@ -137,7 +143,7 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const monthlyCost = annualCost / 12;
 
   // --- Cost Breakdown ---
-  const costItems = [
+  const costItems: { category: string; amount: number; oneOff?: boolean }[] = [
     { category: 'Base Salary', amount: baseSalary },
     { category: 'Annual Bonus', amount: annualBonus },
     { category: 'Equity Income', amount: equityIncome },
@@ -147,8 +153,8 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     { category: 'Home Leave', amount: homeLeaveAnnual },
     { category: 'Transportation', amount: transportAnnual },
     { category: 'Utilities', amount: utilitiesAnnual },
-    { category: 'Immigration', amount: immigrationAnnual },
-    { category: 'Relocation', amount: relocationAnnual },
+    { category: 'Immigration', amount: immigrationAnnual, oneOff: true },
+    { category: 'Relocation', amount: relocationAnnual, oneOff: true },
     { category: 'Tax Preparation', amount: taxPrepAnnual },
     { category: 'Gross-up', amount: grossUpResult.taxOnAllowances },
     { category: 'Employer SS', amount: employerSSCost },

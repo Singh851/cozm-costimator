@@ -29,9 +29,19 @@ function generateReport(input: EstimateInput, caseLabel: string): string {
     ? `Married + ${input.numChildren} child(ren)`
     : input.familyStatus === 'married' ? 'Married / Partner' : 'Single';
 
-  const costRows = result.costBreakdown.map(item =>
+  const recurringItems = result.costBreakdown.filter(item => !item.oneOff);
+  const oneOffItems = result.costBreakdown.filter(item => item.oneOff);
+
+  const recurringRows = recurringItems.map(item =>
     `<tr><td>${item.category}</td><td class="amt">${fmt(item.amount, cur)}</td><td class="amt pct">${item.percentage.toFixed(1)}%</td></tr>`
   ).join('\n');
+
+  const oneOffRows = oneOffItems.map(item =>
+    `<tr><td>${item.category} <span style="font-size:9px;color:#94a3b8">(one-off, annualised)</span></td><td class="amt">${fmt(item.amount, cur)}</td><td class="amt pct">${item.percentage.toFixed(1)}%</td></tr>`
+  ).join('\n');
+
+  const filingStatus = input.familyStatus !== 'single' ? 'Married Filing Jointly' : 'Single';
+  const taxYear = '2025/26';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -207,7 +217,9 @@ function generateReport(input: EstimateInput, caseLabel: string): string {
     <table>
       <thead><tr><th>Category</th><th>Annual Amount</th><th>% of Total</th></tr></thead>
       <tbody>
-        ${costRows}
+        <tr><td colspan="3" style="font-size:10px;font-weight:600;color:#40AEBC;padding-top:6px">RECURRING ANNUAL</td></tr>
+        ${recurringRows}
+        ${oneOffRows.length > 0 ? `<tr><td colspan="3" style="font-size:10px;font-weight:600;color:#94a3b8;padding-top:6px">ONE-OFF (ANNUALISED OVER ${input.durationMonths} MONTHS)</td></tr>${oneOffRows}` : ''}
         <tr class="grand-total"><td>TOTAL ESTIMATED ANNUAL COST</td><td class="amt">${fmt(result.totalEstimatedCost, cur)}</td><td class="amt pct">100%</td></tr>
         <tr><td>Monthly Cost</td><td class="amt">${fmt(result.monthlyCost, cur)}</td><td></td></tr>
         <tr><td>Duration Total (${input.durationMonths} months)</td><td class="amt" style="font-weight:600">${fmt(result.totalEstimatedCost * (input.durationMonths / 12), cur)}</td><td></td></tr>
@@ -215,9 +227,29 @@ function generateReport(input: EstimateInput, caseLabel: string): string {
     </table>
   </div>
 
+  <!-- Assumptions -->
+  <div class="section">
+    <h2 class="section-title">Assumptions & Methodology</h2>
+    <table>
+      <tbody>
+        <tr><td class="label">Tax Year</td><td>${taxYear}</td></tr>
+        <tr><td class="label">Filing Status</td><td>${filingStatus}</td></tr>
+        <tr><td class="label">Tax Equalisation</td><td>${input.hypoTaxPhilosophy === 'taxEqualization' ? 'Yes - employee bears no more/less tax than if they stayed at home' : input.hypoTaxPhilosophy === 'taxProtection' ? 'Tax Protection - employee bears no more than home tax' : 'Stay-at-Home basis'}</td></tr>
+        <tr><td class="label">Social Security</td><td>${input.ssStrategy === 'home' ? 'Home country only (A1/Certificate of Coverage assumed)' : input.ssStrategy === 'host' ? 'Host country only' : 'Dual liability (both countries)'}</td></tr>
+        <tr><td class="label">Bonus Sourcing</td><td>Calendar-year workday allocation per IRC &sect;861 / HMRC practice</td></tr>
+        <tr><td class="label">Equity Sourcing</td><td>Day-count during vesting period per ITEPA 2003 Part 7 / IRC &sect;861</td></tr>
+        <tr><td class="label">Exchange Rate</td><td>Not applied - all amounts in reporting currency (${cur})</td></tr>
+        <tr><td class="label">One-off Costs</td><td>Immigration and relocation costs are one-off; shown annualised in breakdown</td></tr>
+        <tr><td class="label">Tax Data Sources</td><td>IRS Rev. Proc. 2024-40 (US 2025); HMRC 2025/26 rates; EStG &sect;32a (DE 2024)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
   <div class="disclaimer">
-    <p>This cost estimate is for illustration purposes only and should not be treated as tax or legal advice.
-    Actual costs may vary based on exchange rates, legislative changes, and individual circumstances.</p>
+    <p><strong>IMPORTANT:</strong> This cost estimate is for illustration purposes only and does not constitute tax, legal, or financial advice.
+    Actual costs will vary based on exchange rates, legislative changes, individual circumstances, payroll timing, and treaty positions.
+    All figures should be verified by a qualified tax adviser before use in any business case or client communication.</p>
+    <p style="margin-top:6px">Prepared by: The Cozm Ltd | Date: ${today} | Status: Draft - For Review</p>
     <p style="margin-top:4px;font-weight:600;color:#40AEBC">The Cozm Ltd &mdash; www.thecozm.com</p>
   </div>
 

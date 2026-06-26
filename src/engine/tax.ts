@@ -24,31 +24,53 @@ export function calculateTax(
   stateTaxRate: number = 0,
   localTaxRate: number = 0,
   numChildren: number = 0,
-  _isMarried: boolean = false,
+  isMarried: boolean = false,
 ): TaxResult {
-  // Deductions
-  const deductions = country.standardDeduction + country.personalAllowance;
+  // Personal allowance with taper (e.g. UK: reduce by 50p per £1 over £100k)
+  let effectivePA = country.personalAllowance;
+  if (country.personalAllowanceTaper && grossIncome > country.personalAllowanceTaper.threshold) {
+    const excess = grossIncome - country.personalAllowanceTaper.threshold;
+    const reduction = Math.floor(excess * country.personalAllowanceTaper.rate);
+    effectivePA = Math.max(0, effectivePA - reduction);
+  }
+
+  // Deductions — use married standard deduction when available
+  const stdDeduction = (isMarried && country.marriedStandardDeduction != null)
+    ? country.marriedStandardDeduction
+    : country.standardDeduction;
+  const deductions = stdDeduction + effectivePA;
   const taxableIncome = Math.max(0, grossIncome - deductions);
 
-  // Federal/national tax
-  const federal = calculateBracketTax(taxableIncome, country.federalBrackets);
+  // Federal/national tax — use married brackets when available
+  const brackets = (isMarried && country.marriedBrackets)
+    ? country.marriedBrackets
+    : country.federalBrackets;
+  const federal = calculateBracketTax(taxableIncome, brackets);
 
   // State/provincial tax (flat rate approximation)
   const stateTax = taxableIncome * stateTaxRate;
   const localTax = taxableIncome * localTaxRate;
 
-  // Child credits
+  // Child credits — apply against federal tax only (not state/local)
   let childCredits = 0;
   if (country.childCredits && numChildren > 0) {
-    childCredits = Math.min(numChildren, country.childCredits.maxChildren) * country.childCredits.perChild;
+    const maxCredit = Math.min(numChildren, country.childCredits.maxChildren) * country.childCredits.perChild;
+    childCredits = Math.min(maxCredit, federal.total); // can't exceed federal tax
   }
 
-  const totalIncomeTax = Math.max(0, federal.total + stateTax + localTax - childCredits);
+  const totalIncomeTax = Math.max(0, federal.total - childCredits + stateTax + localTax);
 
-  // Social security
+  // Social security — OASDI (capped) + Medicare (uncapped) when split is available
   const ssCappedIncome = country.ssCap > 0 ? Math.min(grossIncome, country.ssCap) : grossIncome;
-  const ssEmployee = ssCappedIncome * country.ssEmployeeRate;
-  const ssEmployer = ssCappedIncome * country.ssEmployerRate;
+  let ssEmployee = ssCappedIncome * country.ssEmployeeRate;
+  let ssEmployer = ssCappedIncome * country.ssEmployerRate;
+
+  if (country.medicareEmployeeRate != null) {
+    ssEmployee += grossIncome * country.medicareEmployeeRate;
+  }
+  if (country.medicareEmployerRate != null) {
+    ssEmployer += grossIncome * country.medicareEmployerRate;
+  }
 
   const effectiveRate = grossIncome > 0 ? totalIncomeTax / grossIncome : 0;
 
@@ -75,8 +97,9 @@ export function calculateHypoTax(
   localTaxRate: number = 0,
   _philosophy: 'taxEqualization' | 'taxProtection' | 'stayAtHome',
   numChildren: number = 0,
+  isMarried: boolean = false,
 ): TaxResult {
-  return calculateTax(grossIncome, country, stateTaxRate, localTaxRate, numChildren);
+  return calculateTax(grossIncome, country, stateTaxRate, localTaxRate, numChildren, isMarried);
 }
 
 export function calculateGrossUp(

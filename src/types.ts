@@ -26,11 +26,16 @@ export interface Country {
   name: string;
   currency: [string, string]; // [code, symbol]
   federalBrackets: TaxBracket[];
+  marriedBrackets?: TaxBracket[];
   standardDeduction: number;
+  marriedStandardDeduction?: number;
   personalAllowance: number;
+  personalAllowanceTaper?: { threshold: number; rate: number }; // e.g. UK: reduce PA by rate per £1 over threshold
   ssEmployeeRate: number;
   ssEmployerRate: number;
   ssCap: number;
+  medicareEmployeeRate?: number; // uncapped (US: 1.45%)
+  medicareEmployerRate?: number; // uncapped (US: 1.45%)
   avgTax: number;
   cities: City[];
   states?: StateProvince[];
@@ -151,5 +156,5 @@ export interface CostEstimateResult {
   monthlyCost: number;
   employerCost: number;
   employeeCost: number;
-  costBreakdown: { category: string; amount: number; percentage: number }[];
+  costBreakdown: { category: string; amount: number; percentage: number; oneOff?: boolean }[];
 }
