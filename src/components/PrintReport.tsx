@@ -40,14 +40,12 @@ export function PrintReport({
 
     // Year-by-year breakdown (flat, no inflation) — detailed line items
     const years = Math.ceil(result.input.durationMonths / 12);
-    const employerSSCost = result.input.ssStrategy === 'home' ? result.homeTax.ssEmployer
-      : result.input.ssStrategy === 'host' ? result.hostTax.ssEmployer
-      : result.homeTax.ssEmployer + result.hostTax.ssEmployer;
+    // Use package-based employer SS from the cost breakdown (not comp-only from homeTax)
+    const employerSSCost = result.costBreakdown.find(c => c.category === 'Employer SS')?.amount ?? 0;
+    const oneOffTotal = result.benefits.immigration + result.benefits.relocation + result.benefits.taxPreparation;
     const recurringAnnual = result.homeCompensation.totalGross
-      + result.benefits.totalAllowances
-      - result.benefits.immigration - result.benefits.relocation
+      + result.benefits.assignmentAllowances
       + result.grossUp.totalGrossUp + employerSSCost;
-    const oneOffTotal = result.benefits.immigration + result.benefits.relocation;
 
     let yearRows = '';
     let durationTotal = 0;
@@ -64,7 +62,7 @@ export function PrintReport({
       if (result.benefits.homeLeave > 0) yearRows += `<tr><td class="indent">Home Leave</td><td class="amt">${fmt(result.benefits.homeLeave, cur)}</td></tr>`;
       if (result.benefits.transportation > 0) yearRows += `<tr><td class="indent">Transportation</td><td class="amt">${fmt(result.benefits.transportation, cur)}</td></tr>`;
       if (result.benefits.utilities > 0) yearRows += `<tr><td class="indent">Utilities</td><td class="amt">${fmt(result.benefits.utilities, cur)}</td></tr>`;
-      if (result.benefits.taxPreparation > 0) yearRows += `<tr><td class="indent">Tax Preparation</td><td class="amt">${fmt(result.benefits.taxPreparation, cur)}</td></tr>`;
+      if (i === 0 && result.benefits.taxPreparation > 0) yearRows += `<tr><td class="indent">Tax Preparation (one-off)</td><td class="amt">${fmt(result.benefits.taxPreparation, cur)}</td></tr>`;
       if (i === 0 && result.benefits.immigration > 0) yearRows += `<tr><td class="indent">Immigration (one-off)</td><td class="amt">${fmt(result.benefits.immigration, cur)}</td></tr>`;
       if (i === 0 && result.benefits.relocation > 0) yearRows += `<tr><td class="indent">Relocation (one-off)</td><td class="amt">${fmt(result.benefits.relocation, cur)}</td></tr>`;
       yearRows += `<tr><td class="indent">Gross-up</td><td class="amt">${fmt(result.grossUp.totalGrossUp, cur)}</td></tr>`;
