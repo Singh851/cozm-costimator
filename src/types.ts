@@ -142,9 +142,11 @@ export interface CostEstimateResult {
     immigration: number;
     relocation: number;
     taxPreparation: number;
+    assignmentAllowances: number;
     totalAllowances: number;
     totalNetBenefits: number;
   };
+  hostTaxOnComp: number;
   grossUp: {
     taxOnAllowances: number;
     iterativeGrossUp: number;
@@ -167,9 +169,12 @@ export interface CostEstimateResult {
   costBreakdown: { category: string; amount: number; percentage: number; oneOff?: boolean }[];
   oneOffAnalysis?: {
     payment: number;
-    marginalTax: number;
-    marginalRate: number;
-    marginalSS: number;
+    hypoTax: number;
+    hypoSS: number;
+    netToEmployee: number;
+    hostTaxGrossUp: number;
+    employerSS: number;
     totalCost: number;
+    marginalRate: number;
   };
 }

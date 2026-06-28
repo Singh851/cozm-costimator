@@ -76,9 +76,14 @@ console.log('\n=== Test 1: GB → US with Base + Bonus + Equity ===');
 
     // Benefits
     assert(result.benefits.totalAllowances > 0, 'Total allowances > 0');
+    assert(result.benefits.assignmentAllowances > 0, 'Assignment allowances > 0');
+    assert(result.benefits.assignmentAllowances <= result.benefits.totalAllowances, 'Assignment allowances <= total (excl one-offs)');
     assert(result.benefits.housing > 0, 'Housing > 0 (NYC)');
     assert(result.benefits.homeLeave > 0, 'Home leave > 0');
     assert(result.benefits.immigration > 0, 'Immigration > 0');
+
+    // Host tax on comp split
+    assert(result.hostTaxOnComp > 0, 'Host tax on comp > 0');
 
     // Gross-up
     assert(result.grossUp.totalGrossUp > 0, 'Gross-up > 0');
@@ -578,15 +583,21 @@ console.log('\n=== Test 11: One-off Payment Marginal Tax (G9) ===');
     assert(result.oneOffAnalysis !== undefined, 'One-off: analysis present');
     if (result.oneOffAnalysis) {
       assert(result.oneOffAnalysis.payment === 50000, 'One-off: payment = 50000');
-      assert(result.oneOffAnalysis.marginalTax > 0, 'One-off: marginal tax > 0');
+      assert(result.oneOffAnalysis.hypoTax > 0, 'One-off: hypo tax > 0');
+      assert(result.oneOffAnalysis.hypoSS >= 0, 'One-off: hypo SS >= 0');
+      assert(result.oneOffAnalysis.netToEmployee > 0, 'One-off: net to employee > 0');
+      assert(result.oneOffAnalysis.netToEmployee < 50000, 'One-off: net < payment (after hypo deduction)');
+      assert(result.oneOffAnalysis.hostTaxGrossUp > 0, 'One-off: host tax gross-up > 0');
       assert(result.oneOffAnalysis.marginalRate > 0 && result.oneOffAnalysis.marginalRate < 1, 'One-off: marginal rate valid');
-      assert(result.oneOffAnalysis.totalCost > 50000, 'One-off: total cost > payment itself');
-      assert(result.oneOffAnalysis.totalCost < 100000, 'One-off: total cost < 2x payment');
+      assert(result.oneOffAnalysis.totalCost > 0, 'One-off: total cost > 0');
 
       console.log(`  Payment: $${result.oneOffAnalysis.payment}`);
+      console.log(`  Hypo tax: $${result.oneOffAnalysis.hypoTax.toFixed(0)}`);
+      console.log(`  Hypo EE SS: $${result.oneOffAnalysis.hypoSS.toFixed(0)}`);
+      console.log(`  Net to employee: $${result.oneOffAnalysis.netToEmployee.toFixed(0)}`);
+      console.log(`  Host tax gross-up: $${result.oneOffAnalysis.hostTaxGrossUp.toFixed(0)}`);
+      console.log(`  Employer SS: $${result.oneOffAnalysis.employerSS.toFixed(0)}`);
       console.log(`  Marginal rate: ${(result.oneOffAnalysis.marginalRate * 100).toFixed(1)}%`);
-      console.log(`  Marginal tax: $${result.oneOffAnalysis.marginalTax.toFixed(0)}`);
-      console.log(`  Marginal SS: $${result.oneOffAnalysis.marginalSS.toFixed(0)}`);
       console.log(`  Total cost: $${result.oneOffAnalysis.totalCost.toFixed(0)}`);
     }
   }

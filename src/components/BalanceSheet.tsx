@@ -80,7 +80,7 @@ export function BalanceSheet({ result, currency }: { result: CostEstimateResult;
               <td className="py-3 text-right font-bold text-[#40AEBC]">{fmt(bs.netHomeComp, currency)}</td>
             </tr>
             <tr className="border-b border-slate-200">
-              <td className="py-2.5 text-slate-600 font-medium">Plus: Host Allowances</td>
+              <td className="py-2.5 text-slate-600 font-medium">Plus: Host Assignment Allowances</td>
               <td className="py-2.5 text-right font-medium text-emerald-600">{fmt(bs.hostAllowances, currency)}</td>
             </tr>
             <tr className="bg-[#40AEBC]/10">

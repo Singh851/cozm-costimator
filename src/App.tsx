@@ -547,7 +547,7 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
           {result.benefits.homeLeave > 0 && <SummaryRow label="Home Leave" value={result.benefits.homeLeave} currency={currency} />}
           {result.benefits.transportation > 0 && <SummaryRow label="Transportation" value={result.benefits.transportation} currency={currency} />}
           {result.benefits.utilities > 0 && <SummaryRow label="Utilities" value={result.benefits.utilities} currency={currency} />}
-          <SubtotalRow label="Total Allowances" value={result.benefits.totalAllowances} currency={currency} />
+          <SubtotalRow label="Total Assignment Allowances" value={result.benefits.assignmentAllowances} currency={currency} />
 
           {/* One-off / Admin */}
           <SectionHeader label="One-off & Administration" />
@@ -557,12 +557,10 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
 
           {/* Tax & SS Section */}
           <SectionHeader label="Taxes & Social Security" />
-          <SummaryRow label="Gross-up on Allowances" value={result.grossUp.totalGrossUp} currency={currency} />
-          <SummaryRow label="Host Tax Gross-Up" value={result.hostTax.totalIncomeTax - result.hypoTax.totalIncomeTax} currency={currency} />
-          <SummaryRow label="Home SS (ER)" value={result.homeTax.ssEmployer} currency={currency} />
-          {result.input.ssStrategy !== 'home' && (
-            <SummaryRow label="Host SS (ER)" value={result.hostTax.ssEmployer} currency={currency} />
-          )}
+          <SummaryRow label="Home Hypothetical Taxes" value={-result.hypoTax.totalIncomeTax} currency={currency} />
+          <SummaryRow label="Host Gross-Up on Home Compensation" value={result.hostTaxOnComp} currency={currency} />
+          <SummaryRow label="Host Gross-Up on Assignment Allowances" value={result.grossUp.totalGrossUp} currency={currency} />
+          <SummaryRow label={result.input.ssStrategy === 'home' ? 'Home Employer SS' : result.input.ssStrategy === 'host' ? 'Host Employer SS' : 'Home + Host Employer SS'} value={result.costBreakdown.find(c => c.category === 'Employer SS')?.amount ?? 0} currency={currency} />
 
           {/* Total */}
           <div className="border-t-2 border-[#40AEBC] pt-3 mt-3">
@@ -657,33 +655,36 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
       {result.oneOffAnalysis && (
         <Card title="One-off Payment Analysis">
           <div className="bg-rose-50 rounded-lg p-4 border border-rose-200">
-            <div className="grid grid-cols-2 gap-4 mb-3">
-              <div>
-                <p className="text-xs text-rose-600 font-medium">Payment Amount</p>
-                <p className="text-lg font-semibold text-rose-800">{fmt(result.oneOffAnalysis.payment, currency)}</p>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-rose-700 font-medium">Payment Amount</span>
+                <span className="font-semibold text-rose-800">{fmt(result.oneOffAnalysis.payment, currency)}</span>
               </div>
-              <div>
-                <p className="text-xs text-rose-600 font-medium">Total Employer Cost</p>
-                <p className="text-lg font-semibold text-rose-800">{fmt(result.oneOffAnalysis.totalCost, currency)}</p>
+              <div className="flex justify-between">
+                <span className="text-rose-700">Less: Hypo Tax ({(result.oneOffAnalysis.marginalRate * 100).toFixed(0)}%)</span>
+                <span className="font-medium text-red-600">({fmt(result.oneOffAnalysis.hypoTax, currency)})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-rose-700">Less: Marginal Employee Social Security</span>
+                <span className="font-medium text-red-600">({fmt(result.oneOffAnalysis.hypoSS, currency)})</span>
+              </div>
+              <div className="flex justify-between border-t border-rose-200 pt-1.5">
+                <span className="text-rose-700 font-medium">Net Payment to Employee</span>
+                <span className="font-semibold text-rose-800">{fmt(result.oneOffAnalysis.netToEmployee, currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-rose-700">Add: Host Tax Gross-Up</span>
+                <span className="font-medium text-rose-800">{fmt(result.oneOffAnalysis.hostTaxGrossUp, currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-rose-700">Add: Employer Social Security</span>
+                <span className="font-medium text-rose-800">{fmt(result.oneOffAnalysis.employerSS, currency)}</span>
+              </div>
+              <div className="flex justify-between border-t-2 border-rose-300 pt-2 mt-1">
+                <span className="text-rose-800 font-bold">Total Employer Cost of One-Off</span>
+                <span className="font-bold text-[#40AEBC] text-base">{fmt(result.oneOffAnalysis.totalCost, currency)}</span>
               </div>
             </div>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-rose-700">Marginal Tax Rate</span>
-                <span className="font-medium text-rose-800">{(result.oneOffAnalysis.marginalRate * 100).toFixed(1)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-rose-700">Marginal Tax</span>
-                <span className="font-medium text-rose-800">{fmt(result.oneOffAnalysis.marginalTax, currency)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-rose-700">Marginal Employer SS</span>
-                <span className="font-medium text-rose-800">{fmt(result.oneOffAnalysis.marginalSS, currency)}</span>
-              </div>
-            </div>
-            <p className="text-xs text-rose-500 mt-3">
-              Marginal cost of a one-off payment on top of regular compensation, using host country tax rates.
-            </p>
           </div>
         </Card>
       )}
@@ -835,13 +836,13 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function CurrencyInput({ value, onChange, currency, compact, placeholder }: { value: number; onChange: (v: number) => void; currency: string; compact?: boolean; placeholder?: string }) {
   const sym = currencies.find(c => c.code === currency)?.symbol || '$';
   return (
-    <div className={`relative ${compact ? 'w-32' : ''}`}>
-      <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-mono ${compact ? 'text-[10px]' : 'text-xs'}`}>{sym}</span>
+    <div className={`relative ${compact ? 'w-36' : ''}`}>
+      <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-mono ${compact ? 'text-[10px]' : 'text-xs'}`}>{sym}</span>
       <input
         type="number"
         value={value || ''}
         onChange={e => onChange(+e.target.value)}
-        className={`input-field ${compact ? 'text-xs py-1 pl-7' : 'pl-9'}`}
+        className={`input-field ${compact ? 'text-xs py-1 pl-8' : 'pl-10'}`}
         min={0}
         placeholder={placeholder}
       />

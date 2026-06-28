@@ -192,7 +192,7 @@ export function PrintReport({
       <tr><td>Less: Hypothetical Tax</td><td class="amt neg">(${fmt(bs.hypoTax, cur)})</td></tr>
       <tr><td>Less: Hypothetical SS</td><td class="amt neg">(${fmt(bs.hypoSS, cur)})</td></tr>
       <tr class="total-row" style="background:#f0fafb"><td style="font-weight:700">Net Home Compensation</td><td class="amt" style="font-weight:700;color:#40AEBC">${fmt(bs.netHomeComp, cur)}</td></tr>
-      <tr><td>Plus: Host Allowances</td><td class="amt" style="color:#059669">${fmt(bs.hostAllowances, cur)}</td></tr>
+      <tr><td>Plus: Host Assignment Allowances</td><td class="amt" style="color:#059669">${fmt(bs.hostAllowances, cur)}</td></tr>
       <tr class="grand-total"><td>Total Host Package</td><td class="amt">${fmt(bs.totalHostPackage, cur)}</td></tr>
     </table>
   </div>
@@ -226,10 +226,12 @@ export function PrintReport({
     <h2 class="section-title">One-off Payment Analysis</h2>
     <table>
       <tr><td class="label">Payment Amount</td><td class="amt">${fmt(result.oneOffAnalysis.payment, cur)}</td></tr>
-      <tr><td class="label">Marginal Tax Rate</td><td class="amt">${(result.oneOffAnalysis.marginalRate * 100).toFixed(1)}%</td></tr>
-      <tr><td class="label">Marginal Tax</td><td class="amt">${fmt(result.oneOffAnalysis.marginalTax, cur)}</td></tr>
-      <tr><td class="label">Marginal Employer SS</td><td class="amt">${fmt(result.oneOffAnalysis.marginalSS, cur)}</td></tr>
-      <tr class="total-row"><td class="label">Total Employer Cost of One-off</td><td class="amt" style="font-weight:700;color:#40AEBC">${fmt(result.oneOffAnalysis.totalCost, cur)}</td></tr>
+      <tr><td class="label">Less: Hypo Tax (${(result.oneOffAnalysis.marginalRate * 100).toFixed(0)}%)</td><td class="amt neg">(${fmt(result.oneOffAnalysis.hypoTax, cur)})</td></tr>
+      <tr><td class="label">Less: Marginal Employee Social Security</td><td class="amt neg">(${fmt(result.oneOffAnalysis.hypoSS, cur)})</td></tr>
+      <tr class="total-row"><td class="label">Net Payment to Employee</td><td class="amt">${fmt(result.oneOffAnalysis.netToEmployee, cur)}</td></tr>
+      <tr><td class="label">Add: Host Tax Gross-Up</td><td class="amt">${fmt(result.oneOffAnalysis.hostTaxGrossUp, cur)}</td></tr>
+      <tr><td class="label">Add: Employer Social Security</td><td class="amt">${fmt(result.oneOffAnalysis.employerSS, cur)}</td></tr>
+      <tr class="grand-total"><td class="label">Total Employer Cost of One-Off</td><td class="amt">${fmt(result.oneOffAnalysis.totalCost, cur)}</td></tr>
     </table>
   </div>` : ''}
 

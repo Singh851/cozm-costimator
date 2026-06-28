@@ -1,6 +1,6 @@
 import type { EstimateInput, CostEstimateResult, TaxResult } from '../types';
 import { getCountry, getCity, getState, getFxToUSD } from '../data/countries';
-import { calculateTax, calculateHypoTax, calculateGrossUp } from './tax';
+import { calculateTax, calculateHypoTax, calculateGrossUp, calculateBracketSS } from './tax';
 import { computeSplitSourcing } from './splitSourcing';
 
 function convertTaxResult(result: TaxResult, fxRate: number): TaxResult {
@@ -18,10 +18,33 @@ function convertTaxResult(result: TaxResult, fxRate: number): TaxResult {
     taxableIncome: result.taxableIncome * fxRate,
     childCredits: result.childCredits * fxRate,
     brackets: result.brackets.map(b => ({
-      bracket: b.bracket,
+      bracket: {
+        min: b.bracket.min * fxRate,
+        max: b.bracket.max === Infinity ? Infinity : b.bracket.max * fxRate,
+        rate: b.bracket.rate,
+      },
       taxInBracket: b.taxInBracket * fxRate,
     })),
   };
+}
+
+/** Compute employer SS on a given local-currency income, with FX conversion back */
+function computeEmployerSS(
+  localIncome: number,
+  country: Parameters<typeof calculateTax>[1],
+  fxRate: number,
+): number {
+  let ss: number;
+  if (country.ssBrackets) {
+    ss = calculateBracketSS(localIncome, country.ssBrackets.employer);
+  } else {
+    const capped = country.ssCap > 0 ? Math.min(localIncome, country.ssCap) : localIncome;
+    ss = capped * country.ssEmployerRate;
+  }
+  if (country.medicareEmployerRate != null) {
+    ss += localIncome * country.medicareEmployerRate;
+  }
+  return ss * fxRate;
 }
 
 export function computeEstimate(input: EstimateInput): CostEstimateResult | null {
@@ -36,8 +59,6 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const hostState = getState(input.hostCountryCode, input.hostCityCode);
 
   // --- FX Rates ---
-  // homeFx = how many reporting-currency units per 1 home-currency unit
-  // hostFx = how many reporting-currency units per 1 host-currency unit
   const reportingFxToUSD = getFxToUSD(input.currency);
   const defaultHomeFx = homeCountry.defaultFxToUSD / reportingFxToUSD;
   const defaultHostFx = hostCountry.defaultFxToUSD / reportingFxToUSD;
@@ -59,43 +80,29 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const numChildren = input.familyStatus === 'married_children' ? (input.numChildren || 1) : 0;
   const isMarried = input.familyStatus !== 'single';
 
-  // Compute benefit amounts from city data
   const housingAnnual = benefits.includeHousing?.enabled ? (benefits.includeHousing.annualAmount || hostCity.housingMonthly * 12) : 0;
-
-  // COLA: difference between host and home cost indices applied to base salary
   const colaPercentage = hostCity.colaIndex > 100 ? (hostCity.colaIndex - 100) / 100 : 0;
   const colaAnnual = benefits.includeCola?.enabled ? (benefits.includeCola.annualAmount || baseSalary * colaPercentage) : 0;
-
   const schoolingAnnual = benefits.includeSchooling?.enabled
-    ? (benefits.includeSchooling.annualAmount || hostCity.schoolingAnnual * numChildren)
-    : 0;
-
+    ? (benefits.includeSchooling.annualAmount || hostCity.schoolingAnnual * numChildren) : 0;
   const homeLeaveAnnual = benefits.includeHomeLeave?.enabled
-    ? (benefits.includeHomeLeave.annualAmount || 5000)
-    : 0;
-
+    ? (benefits.includeHomeLeave.annualAmount || 5000) : 0;
   const transportAnnual = benefits.includeTransportation?.enabled
-    ? (benefits.includeTransportation.annualAmount || hostCity.transportMonthly * 12)
-    : 0;
-
+    ? (benefits.includeTransportation.annualAmount || hostCity.transportMonthly * 12) : 0;
   const utilitiesAnnual = benefits.includeUtilities?.enabled
-    ? (benefits.includeUtilities.annualAmount || hostCity.utilitiesMonthly * 12)
-    : 0;
-
+    ? (benefits.includeUtilities.annualAmount || hostCity.utilitiesMonthly * 12) : 0;
   const immigrationAnnual = benefits.includeImmigration?.enabled
-    ? (benefits.includeImmigration.annualAmount || 3500)
-    : 0;
-
+    ? (benefits.includeImmigration.annualAmount || 3500) : 0;
   const relocationAnnual = benefits.includeRelocation?.enabled
-    ? (benefits.includeRelocation.annualAmount || 15000)
-    : 0;
-
+    ? (benefits.includeRelocation.annualAmount || 15000) : 0;
   const taxPrepAnnual = benefits.includeTaxPreparation?.enabled
-    ? (benefits.includeTaxPreparation.annualAmount || 5000)
-    : 0;
+    ? (benefits.includeTaxPreparation.annualAmount || 5000) : 0;
 
-  const totalAllowances = housingAnnual + colaAnnual + schoolingAnnual + homeLeaveAnnual
-    + transportAnnual + utilitiesAnnual + immigrationAnnual + relocationAnnual + taxPrepAnnual;
+  // Ongoing assignment allowances (excl one-offs)
+  const assignmentAllowances = housingAnnual + colaAnnual + schoolingAnnual + homeLeaveAnnual
+    + transportAnnual + utilitiesAnnual;
+  // Total including one-offs
+  const totalAllowances = assignmentAllowances + immigrationAnnual + relocationAnnual + taxPrepAnnual;
 
   // --- Split-Sourcing ---
   const splitSourcing = computeSplitSourcing(input);
@@ -108,25 +115,29 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const hostStateTaxRate = hostState?.stateTaxRate || 0;
   const hostLocalTaxRate = hostState?.localTaxRate || 0;
 
-  // Home country tax on total compensation (worldwide)
-  // Convert reporting currency → home local currency, calculate, convert back
+  // Home country tax on total compensation (worldwide) — for income tax only
   const homeLocalIncome = totalGrossComp / homeFx;
   const homeTaxLocal = calculateTax(homeLocalIncome, homeCountry, homeStateTaxRate, homeLocalTaxRate, numChildren, isMarried);
   const homeTax = convertTaxResult(homeTaxLocal, homeFx);
 
-  // Host country tax: base salary + split-sourced bonus/equity + allowances
-  // Convert reporting currency → host local currency, calculate, convert back
-  const hostTaxableIncome = baseSalary + bonusHostTaxable + equityHostTaxable + totalAllowances;
+  // Host country tax on full package (comp + split-sourced bonus/equity + allowances)
+  const hostCompIncome = baseSalary + bonusHostTaxable + equityHostTaxable;
+  const hostTaxableIncome = hostCompIncome + totalAllowances;
   const hostLocalIncome = hostTaxableIncome / hostFx;
   const hostTaxLocal = calculateTax(hostLocalIncome, hostCountry, hostStateTaxRate, hostLocalTaxRate, numChildren, isMarried);
 
-  // Compute marginal rate from local-currency result (before FX conversion)
+  // Host tax on comp only (for breakdown split)
+  const hostCompLocalIncome = hostCompIncome / hostFx;
+  const hostTaxOnCompLocal = calculateTax(hostCompLocalIncome, hostCountry, hostStateTaxRate, hostLocalTaxRate, numChildren, isMarried);
+  const hostTaxOnCompValue = hostTaxOnCompLocal.totalIncomeTax * hostFx;
+
+  // Marginal rate from local-currency result (before FX conversion)
   const hostBrackets = (isMarried && hostCountry.marriedBrackets) ? hostCountry.marriedBrackets : hostCountry.federalBrackets;
   const topFederalRate = hostBrackets.length > 0
     ? hostBrackets.find(b => hostTaxLocal.taxableIncome <= b.max)?.rate || hostBrackets[hostBrackets.length - 1].rate
     : 0;
   const hostMarginalRate = topFederalRate + (hostStateTaxRate || 0) + (hostLocalTaxRate || 0);
-  const effectiveMarginalRate = Math.min(hostMarginalRate, 0.6); // cap at 60%
+  const effectiveMarginalRate = Math.min(hostMarginalRate, 0.6);
 
   const hostTax = convertTaxResult(hostTaxLocal, hostFx);
 
@@ -139,7 +150,9 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const grossUpResult = calculateGrossUp(totalAllowances, effectiveMarginalRate);
 
   // --- Social Security ---
-  const homeSS_ER = homeTax.ssEmployer;
+  // Employer SS on total package (comp + allowances) — not just comp
+  const totalPackageLocal = (totalGrossComp + totalAllowances) / homeFx;
+  const homeSS_ER = computeEmployerSS(totalPackageLocal, homeCountry, homeFx);
   const hostSS_ER = hostTax.ssEmployer;
 
   // Hypo SS (what employee would have paid at home)
@@ -147,7 +160,8 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
 
   // --- Employee Balance Sheet ---
   const netHomeComp = totalGrossComp - hypoTax.totalIncomeTax - hypoSS;
-  const totalHostPackage = netHomeComp + totalAllowances;
+  // Balance sheet shows ongoing assignment allowances only (not one-offs like relo/immigration/tax prep)
+  const totalHostPackage = netHomeComp + assignmentAllowances;
 
   // --- Total Employer Cost ---
   const employerSSCost = input.ssStrategy === 'home' ? homeSS_ER
@@ -182,25 +196,40 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     percentage: totalEstimatedCost > 0 ? (item.amount / totalEstimatedCost) * 100 : 0,
   }));
 
-  // --- One-off Payment Marginal Tax Analysis (G9) ---
+  // --- One-off Payment Analysis ---
   let oneOffAnalysis: CostEstimateResult['oneOffAnalysis'];
   const oneOffPayment = input.oneOffPayment || 0;
   if (oneOffPayment > 0) {
-    // Calculate host tax with and without the one-off to get marginal impact
-    const withOneOffLocalIncome = (hostTaxableIncome + oneOffPayment) / hostFx;
-    const withOneOffTaxLocal = calculateTax(withOneOffLocalIncome, hostCountry, hostStateTaxRate, hostLocalTaxRate, numChildren, isMarried);
-    const withOneOffTax = convertTaxResult(withOneOffTaxLocal, hostFx);
+    // Marginal hypo tax (home) on the one-off
+    const hypoWithOneOffLocal = (totalGrossComp + oneOffPayment) / homeFx;
+    const hypoWithOneOffTaxLocal = calculateHypoTax(hypoWithOneOffLocal, homeCountry, homeStateTaxRate, homeLocalTaxRate, input.hypoTaxPhilosophy, numChildren, isMarried);
+    const hypoWithOneOff = convertTaxResult(hypoWithOneOffTaxLocal, homeFx);
+    const marginalHypoTax = hypoWithOneOff.totalIncomeTax - hypoTax.totalIncomeTax;
+    const marginalHypoSS = hypoWithOneOff.ssEmployee - hypoTax.ssEmployee;
+    const marginalRate = oneOffPayment > 0 ? marginalHypoTax / oneOffPayment : 0;
 
-    const marginalTax = withOneOffTax.totalIncomeTax - hostTax.totalIncomeTax;
-    const marginalSS = withOneOffTax.ssEmployer - hostTax.ssEmployer;
-    const marginalRate = oneOffPayment > 0 ? marginalTax / oneOffPayment : 0;
+    // Marginal host tax gross-up on the one-off
+    const hostWithOneOffLocal = (hostTaxableIncome + oneOffPayment) / hostFx;
+    const hostWithOneOffTaxLocal = calculateTax(hostWithOneOffLocal, hostCountry, hostStateTaxRate, hostLocalTaxRate, numChildren, isMarried);
+    const hostWithOneOff = convertTaxResult(hostWithOneOffTaxLocal, hostFx);
+    const marginalHostTax = hostWithOneOff.totalIncomeTax - hostTax.totalIncomeTax;
+
+    // Marginal employer SS on the one-off
+    const packageWithOneOffLocal = (totalGrossComp + totalAllowances + oneOffPayment) / homeFx;
+    const erSSWithOneOff = computeEmployerSS(packageWithOneOffLocal, homeCountry, homeFx);
+    const marginalERSS = erSSWithOneOff - homeSS_ER;
+
+    const netToEmployee = oneOffPayment - marginalHypoTax - marginalHypoSS;
 
     oneOffAnalysis = {
       payment: oneOffPayment,
-      marginalTax,
+      hypoTax: marginalHypoTax,
+      hypoSS: marginalHypoSS,
+      netToEmployee,
+      hostTaxGrossUp: marginalHostTax,
+      employerSS: marginalERSS,
+      totalCost: netToEmployee + marginalHostTax + marginalERSS,
       marginalRate,
-      marginalSS,
-      totalCost: oneOffPayment + marginalTax + marginalSS,
     };
   }
 
@@ -226,9 +255,11 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
       immigration: immigrationAnnual,
       relocation: relocationAnnual,
       taxPreparation: taxPrepAnnual,
+      assignmentAllowances,
       totalAllowances,
       totalNetBenefits: totalAllowances,
     },
+    hostTaxOnComp: hostTaxOnCompValue,
     grossUp: {
       taxOnAllowances: grossUpResult.taxOnAllowances,
       iterativeGrossUp: grossUpResult.grossAllowances,
@@ -239,7 +270,7 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
       hypoTax: hypoTax.totalIncomeTax,
       hypoSS: hypoSS,
       netHomeComp,
-      hostAllowances: totalAllowances,
+      hostAllowances: assignmentAllowances,
       totalHostPackage,
     },
     totalEstimatedCost,
