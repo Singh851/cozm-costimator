@@ -834,18 +834,17 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 function CurrencyInput({ value, onChange, currency, compact, placeholder }: { value: number; onChange: (v: number) => void; currency: string; compact?: boolean; placeholder?: string }) {
-  const sym = currencies.find(c => c.code === currency)?.symbol || '$';
   return (
-    <div className={`relative ${compact ? 'w-36' : ''}`}>
-      <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-mono ${compact ? 'text-[10px]' : 'text-xs'}`}>{sym}</span>
+    <div className={`flex items-center gap-1 ${compact ? 'w-40' : ''}`}>
       <input
         type="number"
         value={value || ''}
         onChange={e => onChange(+e.target.value)}
-        className={`input-field ${compact ? 'text-xs py-1 pl-8' : 'pl-10'}`}
+        className={`input-field flex-1 ${compact ? 'text-xs py-1' : ''}`}
         min={0}
         placeholder={placeholder}
       />
+      <span className={`text-slate-400 shrink-0 ${compact ? 'text-[10px]' : 'text-xs'}`}>{currency}</span>
     </div>
   );
 }
