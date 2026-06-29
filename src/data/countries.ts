@@ -636,6 +636,62 @@ export const countries: Country[] = [
   },
 ];
 
+// PwC Worldwide Tax Summaries reference data — CIT, VAT, WHT, CGT, dividend rates
+// Source: https://docs.google.com/spreadsheets/d/1oL4X1sXxctt8_-8WyVx2qOnUAMRE_D0ZK-bGNoqChD8
+const taxRefData: Record<string, Omit<import('../types').TaxReference, 'dividendTaxBrackets'>> = {
+  GB: { corporateTaxRate: 25, vatRate: 20, capitalGainsTaxRate: 20, whtDividends: 20, whtInterest: 20, whtRoyalties: 20 },
+  US: { corporateTaxRate: 21, vatRate: null, capitalGainsTaxRate: 20, whtDividends: 30, whtInterest: 30, whtRoyalties: 30 },
+  DE: { corporateTaxRate: 29.9, vatRate: 19, capitalGainsTaxRate: 26.375, whtDividends: 25, whtInterest: 25, whtRoyalties: 15 },
+  NL: { corporateTaxRate: 25.8, vatRate: 21, capitalGainsTaxRate: 25.8, whtDividends: 15, whtInterest: 25, whtRoyalties: 15 },
+  ES: { corporateTaxRate: 25, vatRate: 21, capitalGainsTaxRate: 28, whtDividends: 19, whtInterest: 19, whtRoyalties: 19 },
+  FI: { corporateTaxRate: 20, vatRate: 24, capitalGainsTaxRate: 30, whtDividends: 30, whtInterest: 0, whtRoyalties: 0 },
+  EE: { corporateTaxRate: 20, vatRate: 22, capitalGainsTaxRate: 20, whtDividends: 20, whtInterest: 0, whtRoyalties: 10 },
+  LV: { corporateTaxRate: 20, vatRate: 21, capitalGainsTaxRate: 20, whtDividends: 20, whtInterest: 0, whtRoyalties: 0 },
+  LT: { corporateTaxRate: 15, vatRate: 21, capitalGainsTaxRate: 15, whtDividends: 15, whtInterest: 10, whtRoyalties: 10 },
+  GR: { corporateTaxRate: 22, vatRate: 24, capitalGainsTaxRate: 15, whtDividends: 5, whtInterest: 15, whtRoyalties: 20 },
+  AU: { corporateTaxRate: 30, vatRate: 10, capitalGainsTaxRate: 30, whtDividends: 30, whtInterest: 10, whtRoyalties: 30 },
+  SG: { corporateTaxRate: 17, vatRate: 9, capitalGainsTaxRate: 0, whtDividends: 0, whtInterest: 15, whtRoyalties: 10 },
+  HK: { corporateTaxRate: 16.5, vatRate: 0, capitalGainsTaxRate: 0, whtDividends: 0, whtInterest: 0, whtRoyalties: 0 },
+  KR: { corporateTaxRate: 24.2, vatRate: 10, capitalGainsTaxRate: 24.2, whtDividends: 20, whtInterest: 15.4, whtRoyalties: 15.4 },
+  MY: { corporateTaxRate: 24, vatRate: 6, capitalGainsTaxRate: 0, whtDividends: 10, whtInterest: 15, whtRoyalties: 10 },
+  BN: { corporateTaxRate: 18.5, vatRate: 0, capitalGainsTaxRate: 0, whtDividends: 0, whtInterest: 0, whtRoyalties: 0 },
+  CA: { corporateTaxRate: 15, vatRate: 5, capitalGainsTaxRate: 26.76, whtDividends: 25, whtInterest: 25, whtRoyalties: 25 },
+  BR: { corporateTaxRate: 34, vatRate: 17, capitalGainsTaxRate: 15, whtDividends: 0, whtInterest: 15, whtRoyalties: 15 },
+  CL: { corporateTaxRate: 25, vatRate: 19, capitalGainsTaxRate: 10, whtDividends: 35, whtInterest: 4, whtRoyalties: 30 },
+  CO: { corporateTaxRate: 35, vatRate: 19, capitalGainsTaxRate: 10, whtDividends: 10, whtInterest: 15, whtRoyalties: 15 },
+  CR: { corporateTaxRate: 30, vatRate: 13, capitalGainsTaxRate: 15, whtDividends: 15, whtInterest: 15, whtRoyalties: 25 },
+  PA: { corporateTaxRate: 25, vatRate: 7, capitalGainsTaxRate: 10, whtDividends: 10, whtInterest: 0, whtRoyalties: 15 },
+  PE: { corporateTaxRate: 29.5, vatRate: 18, capitalGainsTaxRate: 29.5, whtDividends: 5, whtInterest: 4.99, whtRoyalties: 30 },
+  EC: { corporateTaxRate: 25, vatRate: 12, capitalGainsTaxRate: 10, whtDividends: 10, whtInterest: 0, whtRoyalties: 10 },
+  BO: { corporateTaxRate: 25, vatRate: 13, capitalGainsTaxRate: 25, whtDividends: 7.5, whtInterest: 13, whtRoyalties: 25 },
+  UY: { corporateTaxRate: 25, vatRate: 22, capitalGainsTaxRate: 12, whtDividends: 7, whtInterest: 0, whtRoyalties: 12 },
+};
+
+// Dividend tax brackets per PIT band (from PwC WTS PIT Brackets sheet)
+const dividendBrackets: Record<string, { min: number; max: number; rate: number }[]> = {
+  GB: [
+    { min: 0, max: 12570, rate: 0 },
+    { min: 12570, max: 50270, rate: 0.0875 },
+    { min: 50270, max: 125140, rate: 0.3375 },
+    { min: 125140, max: Infinity, rate: 0.3935 },
+  ],
+  ES: [
+    { min: 0, max: 6000, rate: 0.19 },
+    { min: 6000, max: 50000, rate: 0.21 },
+    { min: 50000, max: 200000, rate: 0.23 },
+    { min: 200000, max: 300000, rate: 0.27 },
+    { min: 300000, max: Infinity, rate: 0.28 },
+  ],
+};
+
+// Apply taxRef data to all countries
+for (const c of countries) {
+  const ref = taxRefData[c.code];
+  if (ref) {
+    c.taxRef = { ...ref, dividendTaxBrackets: dividendBrackets[c.code] };
+  }
+}
+
 export function getFxToUSD(currencyCode: string): number {
   // First-match is fine: all EUR countries share the same 1.09 rate
   const match = countries.find(c => c.currency[0] === currencyCode);

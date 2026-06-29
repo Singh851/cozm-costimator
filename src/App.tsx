@@ -7,6 +7,7 @@ import { CostCharts } from './components/Charts';
 import { TaxBreakdown } from './components/TaxBreakdown';
 import { BalanceSheet } from './components/BalanceSheet';
 import { PrintReport } from './components/PrintReport';
+import { TaxReference } from './components/TaxReference';
 
 const sortedCountries = countries.slice().sort((a, b) => a.name.localeCompare(b.name));
 
@@ -177,7 +178,12 @@ function App() {
         )}
 
         {activeTab === 'planning' && result && (
-          <PlanningInsights result={result} currency={input.currency} input={input} />
+          <div className="space-y-6">
+            <PlanningInsights result={result} currency={input.currency} input={input} />
+            <div className="max-w-4xl mx-auto">
+              <TaxReference homeCountry={homeCountry} hostCountry={hostCountry} currency={input.currency} />
+            </div>
+          </div>
         )}
       </main>
 

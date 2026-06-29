@@ -21,6 +21,17 @@ export interface StateProvince {
   localTaxRate?: number;
 }
 
+/** Supplementary tax rates from PwC Worldwide Tax Summaries */
+export interface TaxReference {
+  corporateTaxRate: number;        // headline CIT %
+  vatRate: number | null;          // VAT/GST %, null if no VAT (e.g. US sales tax)
+  capitalGainsTaxRate: number;     // CGT %
+  whtDividends: number;            // WHT on dividends %
+  whtInterest: number;             // WHT on interest %
+  whtRoyalties: number;            // WHT on royalties %
+  dividendTaxBrackets?: { min: number; max: number; rate: number }[]; // dividend tax by PIT band
+}
+
 export interface Country {
   code: string;
   name: string;
@@ -45,6 +56,7 @@ export interface Country {
   cities: City[];
   states?: StateProvince[];
   childCredits?: { perChild: number; maxChildren: number };
+  taxRef?: TaxReference; // PwC WTS supplementary rates
 }
 
 export interface BenefitConfig {
