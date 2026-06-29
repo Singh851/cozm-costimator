@@ -329,7 +329,18 @@ function InputPanel({
         </div>
         {input.familyStatus === 'married_children' && (
           <Field label="Number of Children">
-            <input type="number" value={input.numChildren} onChange={e => update({ numChildren: +e.target.value })} className="input-field" min={1} max={10} />
+            <input
+              type="number"
+              value={input.numChildren || ''}
+              onChange={e => {
+                const raw = e.target.value;
+                update({ numChildren: raw === '' ? 0 : parseInt(raw, 10) || 0 });
+              }}
+              className="input-field"
+              min={1}
+              max={10}
+              placeholder="1"
+            />
           </Field>
         )}
       </Card>

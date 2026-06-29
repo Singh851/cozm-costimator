@@ -693,6 +693,256 @@ console.log('\n=== Test 14: Month-Rollover Clamp ===');
   console.log(`  Jan 31 + 1mo → ${end.toISOString().slice(0, 10)}`);
 }
 
+// ── Test 15: Tax philosophy produces different results ──
+console.log('\n=== Test 15: Tax Philosophy Differentiation ===');
+{
+  // US→SG: home tax >> host tax, taxProtection should differ
+  const input: EstimateInput = {
+    estimateName: 'Philosophy Test',
+    startDate: '2026-01-01',
+    durationMonths: 24,
+    projectionYears: 2,
+    homeCountryCode: 'US',
+    homeCityCode: 'NYC',
+    hostCountryCode: 'SG',
+    hostCityCode: 'SIN',
+    currency: 'USD',
+    baseSalary: 200000,
+    annualBonus: 30000,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 0,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'single',
+    numChildren: 0,
+    assignmentType: 'longTerm',
+    benefits: getDefaultBenefits(),
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+  };
+
+  const rEq = computeEstimate({ ...input, hypoTaxPhilosophy: 'taxEqualization' });
+  const rProt = computeEstimate({ ...input, hypoTaxPhilosophy: 'taxProtection' });
+
+  assert(rEq !== null && rProt !== null, 'Both philosophy results exist');
+  if (rEq && rProt) {
+    assert(rEq.hypoTax.totalIncomeTax !== rProt.hypoTax.totalIncomeTax,
+      `Tax Eq hypo (${rEq.hypoTax.totalIncomeTax.toFixed(0)}) ≠ Tax Prot hypo (${rProt.hypoTax.totalIncomeTax.toFixed(0)})`);
+    assert(rProt.hypoTax.totalIncomeTax < rEq.hypoTax.totalIncomeTax,
+      'Tax Protection hypo < Tax Equalisation hypo (host tax is lower)');
+    assert(rEq.totalEstimatedCost !== rProt.totalEstimatedCost,
+      `Total cost differs: Eq ${rEq.totalEstimatedCost.toFixed(0)} vs Prot ${rProt.totalEstimatedCost.toFixed(0)}`);
+    console.log(`  Eq hypo: $${rEq.hypoTax.totalIncomeTax.toFixed(0)}, Prot hypo: $${rProt.hypoTax.totalIncomeTax.toFixed(0)}`);
+  }
+}
+
+// ── Test 16: SS strategy produces different results ──
+console.log('\n=== Test 16: SS Strategy Differentiation ===');
+{
+  const input: EstimateInput = {
+    estimateName: 'SS Test',
+    startDate: '2026-01-01',
+    durationMonths: 24,
+    projectionYears: 2,
+    homeCountryCode: 'GB',
+    homeCityCode: 'LON',
+    hostCountryCode: 'US',
+    hostCityCode: 'NYC',
+    currency: 'USD',
+    baseSalary: 120000,
+    annualBonus: 25000,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 30000,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'single',
+    numChildren: 0,
+    assignmentType: 'longTerm',
+    benefits: getDefaultBenefits(),
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+  };
+
+  const rHome = computeEstimate({ ...input, ssStrategy: 'home' });
+  const rHost = computeEstimate({ ...input, ssStrategy: 'host' });
+  const rBoth = computeEstimate({ ...input, ssStrategy: 'both' });
+
+  assert(rHome !== null && rHost !== null && rBoth !== null, 'All SS results exist');
+  if (rHome && rHost && rBoth) {
+    assert(rHome.totalEstimatedCost !== rHost.totalEstimatedCost,
+      `SS home (${rHome.totalEstimatedCost.toFixed(0)}) ≠ SS host (${rHost.totalEstimatedCost.toFixed(0)})`);
+    assert(rBoth.totalEstimatedCost > rHome.totalEstimatedCost,
+      'SS both > SS home');
+    assert(rBoth.totalEstimatedCost > rHost.totalEstimatedCost,
+      'SS both > SS host');
+    console.log(`  Home: $${rHome.totalEstimatedCost.toFixed(0)}, Host: $${rHost.totalEstimatedCost.toFixed(0)}, Both: $${rBoth.totalEstimatedCost.toFixed(0)}`);
+  }
+}
+
+// ── Test 17: Demo Case 1 — US → UK with family ──
+console.log('\n=== Test 17: Demo Case 1 — US → UK ===');
+{
+  const benefits = getDefaultBenefits();
+  const input: EstimateInput = {
+    estimateName: 'Case 1: US → UK',
+    startDate: '2026-01-01',
+    durationMonths: 36,
+    projectionYears: 3,
+    homeCountryCode: 'US',
+    homeCityCode: 'NYC',
+    hostCountryCode: 'GB',
+    hostCityCode: 'LON',
+    currency: 'USD',
+    baseSalary: 85000,
+    annualBonus: 8000,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 20000,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'married_children',
+    numChildren: 2,
+    assignmentType: 'longTerm',
+    benefits,
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+    bonusPerformancePeriodStart: '2026-01-01',
+    bonusPerformancePeriodEnd: '2026-12-31',
+    equityVestingStart: '2024-04-06',
+    equityVestingEnd: '2027-04-05',
+  };
+
+  const result = computeEstimate(input);
+  assert(result !== null, 'Demo 1: result exists');
+  if (result) {
+    assert(result.homeCompensation.baseSalary === 85000, 'Demo 1: base = 85000');
+    assert(result.homeCompensation.annualBonus === 8000, 'Demo 1: bonus = 8000');
+    assert(result.homeCompensation.equityIncome === 20000, 'Demo 1: equity = 20000');
+
+    // Bonus: 100% host taxable
+    assert(result.splitSourcing.bonus.hostRatio === 1.0, `Demo 1: bonus 100% host (got ${result.splitSourcing.bonus.hostRatio})`);
+    assert(result.splitSourcing.bonus.hostTaxableAmount === 8000, `Demo 1: bonus host-taxable = 8000 (got ${result.splitSourcing.bonus.hostTaxableAmount})`);
+
+    // Equity: 460/1095 = 42.01%
+    assert(result.splitSourcing.equity.vestingPeriodDays === 1095, `Demo 1: equity vesting = 1095 (got ${result.splitSourcing.equity.vestingPeriodDays})`);
+    assert(result.splitSourcing.equity.overlapDays === 460, `Demo 1: equity overlap = 460 (got ${result.splitSourcing.equity.overlapDays})`);
+    assertRange(result.splitSourcing.equity.hostRatio, 0.4195, 0.4210, 'Demo 1: equity ratio ≈ 42.01%');
+    assertRange(result.splitSourcing.equity.hostTaxableAmount, 8399, 8405, `Demo 1: equity host-taxable ≈ 8402 (got ${result.splitSourcing.equity.hostTaxableAmount})`);
+
+    // Strategy changes produce different totals
+    const rProt = computeEstimate({ ...input, hypoTaxPhilosophy: 'taxProtection' });
+    const rHost = computeEstimate({ ...input, ssStrategy: 'host' });
+    assert(rHost!.totalEstimatedCost !== result.totalEstimatedCost, 'Demo 1: SS change updates total');
+
+    console.log(`  Total: $${result.totalEstimatedCost.toFixed(0)}`);
+    console.log(`  Equity host-taxable: $${result.splitSourcing.equity.hostTaxableAmount}`);
+  }
+}
+
+// ── Test 18: Demo Case 2 — DE → US with family ──
+console.log('\n=== Test 18: Demo Case 2 — DE → US ===');
+{
+  const benefits = getDefaultBenefits();
+  const input: EstimateInput = {
+    estimateName: 'Case 2: DE → US',
+    startDate: '2026-01-01',
+    durationMonths: 36,
+    projectionYears: 3,
+    homeCountryCode: 'DE',
+    homeCityCode: 'BER',
+    hostCountryCode: 'US',
+    hostCityCode: 'NYC',
+    currency: 'EUR',
+    baseSalary: 75000,
+    annualBonus: 10000,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 15000,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'married_children',
+    numChildren: 1,
+    assignmentType: 'longTerm',
+    benefits,
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+    bonusPerformancePeriodStart: '2026-01-01',
+    bonusPerformancePeriodEnd: '2026-12-31',
+    equityVestingStart: '2024-04-06',
+    equityVestingEnd: '2027-04-05',
+  };
+
+  const result = computeEstimate(input);
+  assert(result !== null, 'Demo 2: result exists');
+  if (result) {
+    assert(result.homeCompensation.baseSalary === 75000, 'Demo 2: base = 75000');
+    assert(result.homeCompensation.annualBonus === 10000, 'Demo 2: bonus = 10000');
+    assert(result.homeCompensation.equityIncome === 15000, 'Demo 2: equity = 15000');
+
+    // Bonus: 100% host taxable
+    assert(result.splitSourcing.bonus.hostRatio === 1.0, `Demo 2: bonus 100% host (got ${result.splitSourcing.bonus.hostRatio})`);
+    assert(result.splitSourcing.bonus.hostTaxableAmount === 10000, `Demo 2: bonus host-taxable = 10000 (got ${result.splitSourcing.bonus.hostTaxableAmount})`);
+
+    // Equity: 460/1095 = 42.01%
+    assert(result.splitSourcing.equity.vestingPeriodDays === 1095, `Demo 2: equity vesting = 1095 (got ${result.splitSourcing.equity.vestingPeriodDays})`);
+    assert(result.splitSourcing.equity.overlapDays === 460, `Demo 2: equity overlap = 460 (got ${result.splitSourcing.equity.overlapDays})`);
+    assertRange(result.splitSourcing.equity.hostRatio, 0.4195, 0.4210, 'Demo 2: equity ratio ≈ 42.01%');
+    assertRange(result.splitSourcing.equity.hostTaxableAmount, 6298, 6305, `Demo 2: equity host-taxable ≈ 6301 (got ${result.splitSourcing.equity.hostTaxableAmount})`);
+
+    // Strategy changes produce different totals
+    const rHost = computeEstimate({ ...input, ssStrategy: 'host' });
+    assert(rHost!.totalEstimatedCost !== result.totalEstimatedCost, 'Demo 2: SS change updates total');
+
+    console.log(`  Total: €${result.totalEstimatedCost.toFixed(0)}`);
+    console.log(`  Equity host-taxable: €${result.splitSourcing.equity.hostTaxableAmount}`);
+  }
+}
+
+// ── Test 19: numChildren=0 handled gracefully ──
+console.log('\n=== Test 19: numChildren Edge Cases ===');
+{
+  const input: EstimateInput = {
+    estimateName: 'Children Test',
+    startDate: '2026-01-01',
+    durationMonths: 12,
+    projectionYears: 1,
+    homeCountryCode: 'US',
+    homeCityCode: 'NYC',
+    hostCountryCode: 'GB',
+    hostCityCode: 'LON',
+    currency: 'USD',
+    baseSalary: 100000,
+    annualBonus: 0,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 0,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'married_children',
+    numChildren: 0,
+    assignmentType: 'longTerm',
+    benefits: getDefaultBenefits(),
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+  };
+
+  // numChildren=0 should not crash, should default to 1 internally
+  const r0 = computeEstimate(input);
+  assert(r0 !== null, 'numChildren=0: result exists');
+  assert(isFinite(r0!.totalEstimatedCost), 'numChildren=0: cost is finite');
+
+  // numChildren=2 should differ from numChildren=1
+  const r1 = computeEstimate({ ...input, numChildren: 1 });
+  const r2 = computeEstimate({ ...input, numChildren: 2 });
+  assert(r1 !== null && r2 !== null, 'numChildren 1 & 2: results exist');
+  // With US child credits, different numChildren should change the tax
+  assert(r1!.homeTax.childCredits === 2000, `numChildren=1: 1 child credit = $2000 (got ${r1!.homeTax.childCredits})`);
+  assert(r2!.homeTax.childCredits === 4000, `numChildren=2: 2 child credits = $4000 (got ${r2!.homeTax.childCredits})`);
+  console.log(`  0 children: $${r0!.totalEstimatedCost.toFixed(0)}, 1: $${r1!.totalEstimatedCost.toFixed(0)}, 2: $${r2!.totalEstimatedCost.toFixed(0)}`);
+}
+
 // ── Summary ──
 console.log(`\n${'='.repeat(50)}`);
 console.log(`RESULTS: ${passed} passed, ${failed} failed, ${passed + failed} total`);

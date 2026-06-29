@@ -144,10 +144,28 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
 
   const hostTax = convertTaxResult(hostTaxLocal, hostFx);
 
-  // Hypothetical tax (what employee would have paid at home)
+  // Hypothetical tax — depends on philosophy:
+  //   taxEqualization: what employee would pay at home on the same gross (standard)
+  //   taxProtection:   lesser of home tax and host tax on comp (employee pays no more than the lower)
+  //   stayAtHome:      actual home tax (same as equalisation for base case)
   const hypoLocalIncome = totalGrossComp / homeFx;
   const hypoTaxLocal = calculateHypoTax(hypoLocalIncome, homeCountry, homeStateTaxRate, homeLocalTaxRate, input.hypoTaxPhilosophy, numChildren, isMarried);
-  const hypoTax = convertTaxResult(hypoTaxLocal, homeFx);
+  let hypoTax = convertTaxResult(hypoTaxLocal, homeFx);
+
+  if (input.hypoTaxPhilosophy === 'taxProtection') {
+    // Tax protection: hypo = min(home tax on comp, host tax on comp)
+    // Employee is "protected" — they never pay more than the lesser of the two
+    const hostTaxOnCompForHypo = hostTaxOnCompLocal.totalIncomeTax * hostFx;
+    if (hostTaxOnCompForHypo < hypoTax.totalIncomeTax) {
+      // Host tax is lower — use host tax as hypo (employer saves)
+      hypoTax = {
+        ...hypoTax,
+        totalIncomeTax: hostTaxOnCompForHypo,
+        effectiveRate: totalGrossComp > 0 ? hostTaxOnCompForHypo / totalGrossComp : 0,
+      };
+    }
+    // If home tax is lower, hypoTax stays as home tax (standard calculation)
+  }
 
   // --- Gross-up ---
   const grossUpResult = calculateGrossUp(totalAllowances, effectiveMarginalRate);
