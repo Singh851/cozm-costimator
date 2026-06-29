@@ -1,6 +1,16 @@
 import type { CostEstimateResult, Country } from '../types';
 import { currencies } from '../data/benefits';
 
+/** Prevent DOM XSS when interpolating user-controlled strings into document.write HTML */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 const fmt = (n: number, currency?: string) => {
   const c = currencies.find(cc => cc.code === currency);
   const sym = c?.symbol || '$';
@@ -74,7 +84,7 @@ export function PrintReport({
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Cozm Cost Estimate - ${result.input.estimateName || 'Report'}</title>
+<title>Cozm Cost Estimate - ${escapeHtml(result.input.estimateName || 'Report')}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -118,7 +128,7 @@ export function PrintReport({
       <img src="https://www.thecozm.com/images/logo/theCozmLogo.png" alt="Cozm" />
       <div><h1>Mobility Cost Estimate</h1><p>Confidential</p></div>
     </div>
-    <div class="header-right"><p>${today}</p><p>Ref: ${result.input.estimateName || 'Untitled'}</p></div>
+    <div class="header-right"><p>${today}</p><p>Ref: ${escapeHtml(result.input.estimateName || 'Untitled')}</p></div>
   </div>
 
   <div class="highlight-box">
@@ -134,11 +144,11 @@ export function PrintReport({
   <div class="section">
     <h2 class="section-title">Assignment Summary</h2>
     <table>
-      <tr><td class="label">Estimate Name</td><td>${result.input.estimateName || 'Untitled'}</td></tr>
-      <tr><td class="label">Home</td><td>${homeCountry?.name || result.input.homeCountryCode} (${result.input.homeCityCode})</td></tr>
-      <tr><td class="label">Host</td><td>${hostCountry?.name || result.input.hostCountryCode} (${result.input.hostCityCode})</td></tr>
-      <tr><td class="label">Duration</td><td>${result.input.durationMonths} months from ${result.input.startDate}</td></tr>
-      <tr><td class="label">Assignment End</td><td>${ss.assignmentEnd}</td></tr>
+      <tr><td class="label">Estimate Name</td><td>${escapeHtml(result.input.estimateName || 'Untitled')}</td></tr>
+      <tr><td class="label">Home</td><td>${escapeHtml(homeCountry?.name || result.input.homeCountryCode)} (${escapeHtml(result.input.homeCityCode)})</td></tr>
+      <tr><td class="label">Host</td><td>${escapeHtml(hostCountry?.name || result.input.hostCountryCode)} (${escapeHtml(result.input.hostCityCode)})</td></tr>
+      <tr><td class="label">Duration</td><td>${result.input.durationMonths} months from ${escapeHtml(result.input.startDate)}</td></tr>
+      <tr><td class="label">Assignment End</td><td>${escapeHtml(ss.assignmentEnd)}</td></tr>
       <tr><td class="label">Family Status</td><td>${familyLabel}</td></tr>
       <tr><td class="label">Currency</td><td>${cur}</td></tr>
     </table>
@@ -169,7 +179,7 @@ export function PrintReport({
   <div class="section">
     <h2 class="section-title">Tax Comparison</h2>
     <table>
-      <thead><tr><th></th><th>Home (${homeCountry?.name})</th><th>Host (${hostCountry?.name})</th><th>Hypothetical</th></tr></thead>
+      <thead><tr><th></th><th>Home (${escapeHtml(homeCountry?.name ?? '')})</th><th>Host (${escapeHtml(hostCountry?.name ?? '')})</th><th>Hypothetical</th></tr></thead>
       <tbody>
         <tr><td>Gross Income</td><td class="amt">${fmt(result.homeTax.grossIncome, cur)}</td><td class="amt">${fmt(result.hostTax.grossIncome, cur)}</td><td class="amt">${fmt(result.hypoTax.grossIncome, cur)}</td></tr>
         <tr><td>Income Tax</td><td class="amt">${fmt(result.homeTax.totalIncomeTax, cur)}</td><td class="amt">${fmt(result.hostTax.totalIncomeTax, cur)}</td><td class="amt">${fmt(result.hypoTax.totalIncomeTax, cur)}</td></tr>

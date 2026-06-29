@@ -429,13 +429,15 @@ function InputPanel({
             const hostCity = hostCountry?.cities.find(c => c.code === input.hostCityCode);
             const numChildren = input.familyStatus === 'married_children' ? (input.numChildren || 1) : 0;
             const colaIdx = hostCity ? (hostCity.colaIndex > 100 ? (hostCity.colaIndex - 100) / 100 : 0) : 0;
+            // City defaults are in host local currency — convert to reporting currency
+            const hFx = input.hostExchangeRate ?? (hostCountry ? hostCountry.defaultFxToUSD / getFxToUSD(input.currency) : 1);
             const defaults: Record<string, number> = {
-              includeHousing: (hostCity?.housingMonthly || 0) * 12,
+              includeHousing: (hostCity?.housingMonthly || 0) * 12 * hFx,
               includeCola: Math.round(input.baseSalary * colaIdx),
-              includeSchooling: (hostCity?.schoolingAnnual || 0) * numChildren,
+              includeSchooling: (hostCity?.schoolingAnnual || 0) * numChildren * hFx,
               includeHomeLeave: 5000,
-              includeTransportation: (hostCity?.transportMonthly || 0) * 12,
-              includeUtilities: (hostCity?.utilitiesMonthly || 0) * 12,
+              includeTransportation: (hostCity?.transportMonthly || 0) * 12 * hFx,
+              includeUtilities: (hostCity?.utilitiesMonthly || 0) * 12 * hFx,
               includeImmigration: 3500,
               includeRelocation: 15000,
               includeTaxPreparation: 5000,

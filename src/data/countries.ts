@@ -395,7 +395,7 @@ export const countries: Country[] = [
     personalAllowance: 0,
     ssEmployeeRate: 0.05,
     ssEmployerRate: 0.05,
-    ssCap: 0,
+    ssCap: 33600, // BND 2,800/mo × 12
     avgTax: 0,
     cities: [
       { code: 'BSB', name: 'Bandar Seri Begawan', housingMonthly: 1500, schoolingAnnual: 15000, colaIndex: 70, utilitiesMonthly: 200, transportMonthly: 100 },
@@ -637,6 +637,7 @@ export const countries: Country[] = [
 ];
 
 export function getFxToUSD(currencyCode: string): number {
+  // First-match is fine: all EUR countries share the same 1.09 rate
   const match = countries.find(c => c.currency[0] === currencyCode);
   return match?.defaultFxToUSD || 1.0;
 }

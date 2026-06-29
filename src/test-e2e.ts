@@ -107,7 +107,9 @@ console.log('\n=== Test 1: GB → US with Base + Bonus + Equity ===');
     assert(categories.includes('Annual Bonus'), 'Breakdown has Annual Bonus');
     assert(categories.includes('Equity Income'), 'Breakdown has Equity Income');
     assert(categories.includes('Housing'), 'Breakdown has Housing');
-    assert(categories.includes('Gross-up'), 'Breakdown has Gross-up');
+    assert(categories.includes('Gross-up on Allowances'), 'Breakdown has Gross-up on Allowances');
+    assert(categories.includes('Host Tax on Comp'), 'Breakdown has Host Tax on Comp');
+    assert(categories.includes('Hypo Tax Credit'), 'Breakdown has Hypo Tax Credit');
 
     // Percentages sum to ~100
     const totalPct = result.costBreakdown.reduce((s, c) => s + c.percentage, 0);
@@ -677,6 +679,18 @@ console.log('\n=== Test 13: Same Currency = No FX Effect ===');
     assert(result.homeTax.taxableIncome === 135000, `Same currency: taxableIncome = 135000 (got ${result.homeTax.taxableIncome})`);
     console.log(`  Home tax: $${result.homeTax.totalIncomeTax.toFixed(0)}`);
   }
+}
+
+// ── Test 14: Month-rollover clamp (Jan 31 + 1mo) ──
+console.log('\n=== Test 14: Month-Rollover Clamp ===');
+{
+  const { computeAssignmentEnd } = await import('./engine/splitSourcing');
+  // Jan 31 + 1 month should end on Feb 27 (last day = Feb 28 - 1), not Mar 2
+  const jan31 = new Date(Date.UTC(2026, 0, 31));
+  const end = computeAssignmentEnd(jan31, 1);
+  assert(end.getUTCMonth() === 1, `Month-rollover: end month is Feb (got ${end.getUTCMonth()})`);
+  assert(end.getUTCDate() === 27, `Month-rollover: end date is 27 (got ${end.getUTCDate()})`);
+  console.log(`  Jan 31 + 1mo → ${end.toISOString().slice(0, 10)}`);
 }
 
 // ── Summary ──

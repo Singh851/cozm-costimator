@@ -77,20 +77,23 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
 
   // --- Benefits ---
   const benefits = input.benefits;
+  // || 1: intentional — if married_children but numChildren not yet set, default to 1 for schooling calc
   const numChildren = input.familyStatus === 'married_children' ? (input.numChildren || 1) : 0;
   const isMarried = input.familyStatus !== 'single';
 
-  const housingAnnual = benefits.includeHousing?.enabled ? (benefits.includeHousing.annualAmount || hostCity.housingMonthly * 12) : 0;
+  // City defaults are in host local currency — multiply by hostFx to convert to reporting currency.
+  // User-entered overrides (annualAmount) are already in reporting currency.
+  const housingAnnual = benefits.includeHousing?.enabled ? (benefits.includeHousing.annualAmount || hostCity.housingMonthly * 12 * hostFx) : 0;
   const colaPercentage = hostCity.colaIndex > 100 ? (hostCity.colaIndex - 100) / 100 : 0;
   const colaAnnual = benefits.includeCola?.enabled ? (benefits.includeCola.annualAmount || baseSalary * colaPercentage) : 0;
   const schoolingAnnual = benefits.includeSchooling?.enabled
-    ? (benefits.includeSchooling.annualAmount || hostCity.schoolingAnnual * numChildren) : 0;
+    ? (benefits.includeSchooling.annualAmount || hostCity.schoolingAnnual * numChildren * hostFx) : 0;
   const homeLeaveAnnual = benefits.includeHomeLeave?.enabled
     ? (benefits.includeHomeLeave.annualAmount || 5000) : 0;
   const transportAnnual = benefits.includeTransportation?.enabled
-    ? (benefits.includeTransportation.annualAmount || hostCity.transportMonthly * 12) : 0;
+    ? (benefits.includeTransportation.annualAmount || hostCity.transportMonthly * 12 * hostFx) : 0;
   const utilitiesAnnual = benefits.includeUtilities?.enabled
-    ? (benefits.includeUtilities.annualAmount || hostCity.utilitiesMonthly * 12) : 0;
+    ? (benefits.includeUtilities.annualAmount || hostCity.utilitiesMonthly * 12 * hostFx) : 0;
   const immigrationAnnual = benefits.includeImmigration?.enabled
     ? (benefits.includeImmigration.annualAmount || 3500) : 0;
   const relocationAnnual = benefits.includeRelocation?.enabled
@@ -168,7 +171,10 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     : input.ssStrategy === 'host' ? hostSS_ER
     : homeSS_ER + hostSS_ER;
 
-  const totalEstimatedCost = totalGrossComp + totalAllowances + grossUpResult.taxOnAllowances + employerSSCost;
+  // Tax equalisation model: employer bears host tax on comp (net of hypo credit) + gross-up on allowances + ER SS
+  const totalEstimatedCost = totalGrossComp + totalAllowances
+    + hostTaxOnCompValue - hypoTax.totalIncomeTax
+    + grossUpResult.taxOnAllowances + employerSSCost;
 
   const annualCost = totalEstimatedCost;
   const monthlyCost = annualCost / 12;
@@ -186,10 +192,12 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     { category: 'Utilities', amount: utilitiesAnnual },
     { category: 'Immigration', amount: immigrationAnnual, oneOff: true },
     { category: 'Relocation', amount: relocationAnnual, oneOff: true },
-    { category: 'Tax Preparation', amount: taxPrepAnnual },
-    { category: 'Gross-up', amount: grossUpResult.taxOnAllowances },
+    { category: 'Tax Preparation', amount: taxPrepAnnual, oneOff: true },
+    { category: 'Host Tax on Comp', amount: hostTaxOnCompValue },
+    { category: 'Hypo Tax Credit', amount: -hypoTax.totalIncomeTax },
+    { category: 'Gross-up on Allowances', amount: grossUpResult.taxOnAllowances },
     { category: 'Employer SS', amount: employerSSCost },
-  ].filter(item => item.amount > 0);
+  ].filter(item => item.amount !== 0);
 
   const costBreakdown = costItems.map(item => ({
     ...item,
@@ -214,10 +222,17 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     const hostWithOneOff = convertTaxResult(hostWithOneOffTaxLocal, hostFx);
     const marginalHostTax = hostWithOneOff.totalIncomeTax - hostTax.totalIncomeTax;
 
-    // Marginal employer SS on the one-off
-    const packageWithOneOffLocal = (totalGrossComp + totalAllowances + oneOffPayment) / homeFx;
-    const erSSWithOneOff = computeEmployerSS(packageWithOneOffLocal, homeCountry, homeFx);
-    const marginalERSS = erSSWithOneOff - homeSS_ER;
+    // Marginal employer SS on the one-off — respects ssStrategy
+    let marginalERSS = 0;
+    if (input.ssStrategy === 'home' || input.ssStrategy === 'both') {
+      const packageWithOneOffLocal = (totalGrossComp + totalAllowances + oneOffPayment) / homeFx;
+      marginalERSS += computeEmployerSS(packageWithOneOffLocal, homeCountry, homeFx) - homeSS_ER;
+    }
+    if (input.ssStrategy === 'host' || input.ssStrategy === 'both') {
+      const hostPackageWithOneOffLocal = (hostTaxableIncome + oneOffPayment) / hostFx;
+      const hostERSSWithOneOff = computeEmployerSS(hostPackageWithOneOffLocal, hostCountry, hostFx);
+      marginalERSS += hostERSSWithOneOff - hostSS_ER;
+    }
 
     const netToEmployee = oneOffPayment - marginalHypoTax - marginalHypoSS;
 

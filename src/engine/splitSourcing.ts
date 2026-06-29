@@ -21,18 +21,29 @@ export function overlapDays(
 /** Compute assignment end date from start + duration in months */
 export function computeAssignmentEnd(start: Date, months: number): Date {
   const end = new Date(start);
-  end.setUTCMonth(end.getUTCMonth() + months);
+  const targetMonth = end.getUTCMonth() + months;
+  end.setUTCMonth(targetMonth);
+  // Clamp day-of-month to avoid month-rollover (e.g. Jan 31 + 1mo → Mar 3)
+  if (end.getUTCMonth() !== ((targetMonth % 12) + 12) % 12) {
+    end.setUTCDate(0); // last day of previous month
+  }
   end.setUTCDate(end.getUTCDate() - 1); // last day of assignment
   return end;
 }
 
 function parseDate(s: string): Date {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(NaN);
   const [y, m, d] = s.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
 
 export function computeSplitSourcing(input: EstimateInput): SplitSourcingResult {
-  const assignStart = parseDate(input.startDate);
+  let assignStart = parseDate(input.startDate);
+  // Guard: if startDate is malformed, fall back to today
+  if (isNaN(assignStart.getTime())) {
+    const today = new Date();
+    assignStart = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  }
   const assignEnd = computeAssignmentEnd(assignStart, input.durationMonths);
 
   const annualBonus = input.bonusType === 'percentage'
