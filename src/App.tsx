@@ -46,6 +46,13 @@ function App() {
     benefits: getDefaultBenefits(),
     hypoTaxPhilosophy: 'taxEqualization',
     ssStrategy: 'home',
+    incentivePlanName: '',
+    performancePeriodType: 'annual',
+    equityQualifying: false,
+    equityCarveOut: false,
+    inflationRate: 0.03,
+    otherCompensation: [],
+    otherBenefits: [],
   });
 
   const update = useCallback((partial: Partial<EstimateInput>) => {
@@ -245,6 +252,17 @@ function InputPanel({
             </select>
           </Field>
         </div>
+        <Field label="Inflation Rate (%)" hint="Applied to year-by-year cost projections">
+          <input
+            type="number"
+            value={((input.inflationRate ?? 0.03) * 100)}
+            onChange={e => update({ inflationRate: +e.target.value / 100 })}
+            className="input-field"
+            min={0}
+            max={20}
+            step={0.5}
+          />
+        </Field>
         <Field label="Assignment Type" hint="Choose the assignment type to apply standard benefits and tax logic">
           <select value={input.assignmentType} onChange={e => update({ assignmentType: e.target.value as EstimateInput['assignmentType'] })} className="input-field">
             {assignmentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -351,10 +369,10 @@ function InputPanel({
           <CurrencyInput value={input.baseSalary} onChange={v => update({ baseSalary: v })} currency={input.currency} />
         </Field>
 
-        {/* Annual Bonus - Enhanced */}
+        {/* Cash Incentive Plan */}
         <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-semibold text-amber-800">Annual Bonus</label>
+            <label className="text-sm font-semibold text-amber-800">Cash Incentive Plan</label>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => update({ bonusType: 'fixed' })}
@@ -366,22 +384,48 @@ function InputPanel({
               >% of Base</button>
             </div>
           </div>
-          {input.bonusType === 'fixed' ? (
-            <CurrencyInput value={input.annualBonus} onChange={v => update({ annualBonus: v })} currency={input.currency} />
-          ) : (
+          <div className="mb-2">
+            <label className="text-xs text-amber-600 mb-1 block">Plan Name</label>
+            <input
+              type="text"
+              value={input.incentivePlanName || ''}
+              onChange={e => update({ incentivePlanName: e.target.value })}
+              placeholder="e.g. Annual STIP, 3-Year LTIP"
+              className="input-field text-xs"
+            />
+          </div>
+          <div className="mb-2">
+            <label className="text-xs text-amber-600 mb-1 block">Performance Period Type</label>
             <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={input.bonusPercentage}
-                onChange={e => update({ bonusPercentage: +e.target.value })}
-                className="input-field w-24"
-                min={0}
-                max={200}
-              />
-              <span className="text-sm text-amber-700">% = {fmt(input.baseSalary * input.bonusPercentage / 100, input.currency)}</span>
+              {(['annual', '3year', 'custom'] as const).map(pt => (
+                <button
+                  key={pt}
+                  onClick={() => update({ performancePeriodType: pt })}
+                  className={`px-2 py-0.5 text-xs rounded ${input.performancePeriodType === pt ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-700'}`}
+                >
+                  {pt === 'annual' ? 'Annual' : pt === '3year' ? '3-Year' : 'Custom'}
+                </button>
+              ))}
             </div>
-          )}
-          <p className="text-xs text-amber-600 mt-1">Target bonus — included in hypothetical tax and gross-up calculations</p>
+          </div>
+          <div className="mb-2">
+            <label className="text-xs text-amber-600 mb-1 block">Target</label>
+            {input.bonusType === 'fixed' ? (
+              <CurrencyInput value={input.annualBonus} onChange={v => update({ annualBonus: v })} currency={input.currency} />
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={input.bonusPercentage}
+                  onChange={e => update({ bonusPercentage: +e.target.value })}
+                  className="input-field w-24"
+                  min={0}
+                  max={200}
+                />
+                <span className="text-sm text-amber-700">% = {fmt(input.baseSalary * input.bonusPercentage / 100, input.currency)}</span>
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-2 mt-2">
             <div>
               <label className="text-xs text-amber-600 mb-1 block">Performance Period Start</label>
@@ -392,6 +436,7 @@ function InputPanel({
               <input type="date" value={input.bonusPerformancePeriodEnd || ''} onChange={e => update({ bonusPerformancePeriodEnd: e.target.value || undefined })} className="input-field text-xs" />
             </div>
           </div>
+          <p className="text-xs text-amber-600 mt-1">Target incentive — included in hypothetical tax and gross-up calculations</p>
         </div>
 
         {/* Equity Income - NEW */}
@@ -422,12 +467,29 @@ function InputPanel({
               <input type="date" value={input.equityVestingEnd || ''} onChange={e => update({ equityVestingEnd: e.target.value || undefined })} className="input-field text-xs" />
             </div>
           </div>
+          <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-2">
+              <div
+                className={`toggle-switch shrink-0 ${input.equityQualifying ? 'active' : ''}`}
+                onClick={() => update({ equityQualifying: !input.equityQualifying })}
+              />
+              <span className="text-xs text-purple-700">Qualifying Plan</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                className={`toggle-switch shrink-0 ${input.equityCarveOut ? 'active' : ''}`}
+                onClick={() => update({ equityCarveOut: !input.equityCarveOut })}
+              />
+              <span className="text-xs text-purple-700">Carve-Out from Tax EQ</span>
+            </div>
+          </div>
           <p className="text-xs text-purple-600 mt-1.5">
             Equity compensation subject to split-sourcing rules between home and host jurisdictions.
             {input.equityType === 'rsu' && ' RSUs are typically taxed as ordinary income upon vesting.'}
             {input.equityType === 'options' && ' Stock options may qualify for capital gains treatment in some jurisdictions.'}
             {input.equityType === 'espp' && ' ESPP discount is generally treated as ordinary income.'}
             {input.equityType === 'phantom' && ' Phantom equity is always taxed as ordinary income.'}
+            {input.equityCarveOut && ' Equity income is carved out from the hypothetical tax base.'}
           </p>
         </div>
 
@@ -503,6 +565,110 @@ function InputPanel({
             <option value="both">Both (Dual Liability)</option>
           </select>
         </Field>
+        {input.equityIncome > 0 && (
+          <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+            <div className="flex items-center gap-2">
+              <div
+                className={`toggle-switch shrink-0 ${input.equityCarveOut ? 'active' : ''}`}
+                onClick={() => update({ equityCarveOut: !input.equityCarveOut })}
+              />
+              <div>
+                <span className="text-xs font-medium text-purple-800">Equity Carve-Out from Tax Equalisation</span>
+                <p className="text-[10px] text-purple-600">When enabled, equity income is excluded from the hypothetical tax base</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Other Compensation & Benefits */}
+      <Card title="Other Items" subtitle="Custom compensation and benefit line items">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">Other Compensation</label>
+            <p className="text-[10px] text-slate-400 mb-2">Added to gross comp (fully taxable + SS chargeable)</p>
+            {(input.otherCompensation || []).map((item, idx) => (
+              <div key={idx} className="flex items-center gap-2 mb-2">
+                <input
+                  type="text"
+                  value={item.name}
+                  onChange={e => {
+                    const items = [...(input.otherCompensation || [])];
+                    items[idx] = { ...items[idx], name: e.target.value };
+                    update({ otherCompensation: items });
+                  }}
+                  placeholder="e.g. Hardship Allowance"
+                  className="input-field text-xs flex-1"
+                />
+                <CurrencyInput
+                  value={item.amount}
+                  onChange={v => {
+                    const items = [...(input.otherCompensation || [])];
+                    items[idx] = { ...items[idx], amount: v };
+                    update({ otherCompensation: items });
+                  }}
+                  currency={input.currency}
+                  compact
+                />
+                <button
+                  onClick={() => {
+                    const items = (input.otherCompensation || []).filter((_, i) => i !== idx);
+                    update({ otherCompensation: items });
+                  }}
+                  className="text-red-400 hover:text-red-600 text-xs px-1"
+                >✕</button>
+              </div>
+            ))}
+            {(input.otherCompensation || []).length < 3 && (
+              <button
+                onClick={() => update({ otherCompensation: [...(input.otherCompensation || []), { name: '', amount: 0 }] })}
+                className="text-xs text-[#40AEBC] hover:text-[#2D8A96] font-medium"
+              >+ Add Compensation Item</button>
+            )}
+          </div>
+          <div className="border-t border-slate-100 pt-3">
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">Other Benefits</label>
+            <p className="text-[10px] text-slate-400 mb-2">Added to allowances (grossed up, fully taxable + SS chargeable)</p>
+            {(input.otherBenefits || []).map((item, idx) => (
+              <div key={idx} className="flex items-center gap-2 mb-2">
+                <input
+                  type="text"
+                  value={item.name}
+                  onChange={e => {
+                    const items = [...(input.otherBenefits || [])];
+                    items[idx] = { ...items[idx], name: e.target.value };
+                    update({ otherBenefits: items });
+                  }}
+                  placeholder="e.g. Language Training"
+                  className="input-field text-xs flex-1"
+                />
+                <CurrencyInput
+                  value={item.amount}
+                  onChange={v => {
+                    const items = [...(input.otherBenefits || [])];
+                    items[idx] = { ...items[idx], amount: v };
+                    update({ otherBenefits: items });
+                  }}
+                  currency={input.currency}
+                  compact
+                />
+                <button
+                  onClick={() => {
+                    const items = (input.otherBenefits || []).filter((_, i) => i !== idx);
+                    update({ otherBenefits: items });
+                  }}
+                  className="text-red-400 hover:text-red-600 text-xs px-1"
+                >✕</button>
+              </div>
+            ))}
+            {(input.otherBenefits || []).length < 3 && (
+              <button
+                onClick={() => update({ otherBenefits: [...(input.otherBenefits || []), { name: '', amount: 0 }] })}
+                className="text-xs text-[#40AEBC] hover:text-[#2D8A96] font-medium"
+              >+ Add Benefit Item</button>
+            )}
+          </div>
+        </div>
       </Card>
     </>
   );
@@ -536,7 +702,7 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
       <Card title="Compensation Summary">
         <div className="space-y-2">
           <SummaryRow label="Base Salary" value={result.homeCompensation.baseSalary} currency={currency} />
-          <SummaryRow label="Annual Bonus" value={result.homeCompensation.annualBonus} currency={currency} accent="amber" />
+          <SummaryRow label={result.input.incentivePlanName?.trim() || 'Annual Bonus'} value={result.homeCompensation.annualBonus} currency={currency} accent="amber" />
           <SummaryRow label="Equity Income" value={result.homeCompensation.equityIncome} currency={currency} accent="purple" />
           <div className="border-t border-slate-200 pt-2">
             <SummaryRow label="Total Gross Compensation" value={result.homeCompensation.totalGross} currency={currency} bold />
@@ -555,7 +721,7 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
           {/* Compensation Section */}
           <SectionHeader label="Compensation" />
           <SummaryRow label="Base Salary" value={result.homeCompensation.baseSalary} currency={currency} />
-          <SummaryRow label="Annual Bonus" value={result.homeCompensation.annualBonus} currency={currency} />
+          <SummaryRow label={result.input.incentivePlanName?.trim() || 'Annual Bonus'} value={result.homeCompensation.annualBonus} currency={currency} />
           <SummaryRow label="Equity Income" value={result.homeCompensation.equityIncome} currency={currency} />
 
           {/* Allowances Section */}
@@ -636,7 +802,19 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
             )}
             {result.homeCompensation.equityIncome > 0 && (
               <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                <h4 className="text-sm font-semibold text-purple-800 mb-2">Equity Split-Sourcing</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-purple-800">Equity Split-Sourcing</h4>
+                  <div className="flex items-center gap-2">
+                    {result.input.equityQualifying !== undefined && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${result.input.equityQualifying ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {result.input.equityQualifying ? 'Qualifying' : 'Non-Qualifying'}
+                      </span>
+                    )}
+                    {result.input.equityCarveOut && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-200 text-purple-800">Carved Out</span>
+                    )}
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4 mb-2">
                   <div>
                     <p className="text-xs text-purple-600 font-medium">Total Equity ({equityTypes.find(t => t.value === result.input.equityType)?.label})</p>
@@ -780,48 +958,88 @@ function PlanningInsights({ result, currency, input }: {
       </Card>
 
       {/* Projection */}
-      <Card title="Cost Projection">
+      <Card title={`Cost Projection (${((input.inflationRate ?? 0.03) * 100).toFixed(1)}% inflation)`}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Year</th>
-                <th className="text-right py-2 text-xs font-semibold text-slate-500 uppercase">Compensation</th>
+                <th className="text-right py-2 text-xs font-semibold text-slate-500 uppercase">Base Salary</th>
+                <th className="text-right py-2 text-xs font-semibold text-slate-500 uppercase">Incentive</th>
+                <th className="text-right py-2 text-xs font-semibold text-slate-500 uppercase">Equity</th>
                 <th className="text-right py-2 text-xs font-semibold text-slate-500 uppercase">Allowances</th>
                 <th className="text-right py-2 text-xs font-semibold text-slate-500 uppercase">Tax & SS</th>
                 <th className="text-right py-2 text-xs font-semibold text-slate-500 uppercase">Total</th>
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: Math.ceil(input.durationMonths / 12) }, (_, i) => {
-                const inflationFactor = Math.pow(1.03, i); // 3% annual inflation
-                const comp = result.homeCompensation.totalGross * inflationFactor;
-                const allow = result.benefits.totalAllowances * inflationFactor;
-                const taxSS = (result.grossUp.totalGrossUp + result.homeTax.ssEmployer) * inflationFactor;
-                const total = result.totalEstimatedCost * inflationFactor;
-                return (
-                  <tr key={i} className="border-b border-slate-100">
-                    <td className="py-2 font-medium text-slate-700">Year {i + 1}</td>
-                    <td className="py-2 text-right text-slate-600">{fmt(comp, currency)}</td>
-                    <td className="py-2 text-right text-slate-600">{fmt(allow, currency)}</td>
-                    <td className="py-2 text-right text-slate-600">{fmt(taxSS, currency)}</td>
-                    <td className="py-2 text-right font-semibold text-slate-800">{fmt(total, currency)}</td>
+              {(() => {
+                const inflationRate = input.inflationRate ?? 0.03;
+                const assignmentYears = Math.ceil(input.durationMonths / 12);
+                const employerSSCost = result.costBreakdown.find(c => c.category === 'Employer SS')?.amount ?? 0;
+                const rows: React.ReactNode[] = [];
+                let grandTotal = 0;
+
+                for (let i = 0; i < assignmentYears; i++) {
+                  const f = Math.pow(1 + inflationRate, i);
+                  const base = result.homeCompensation.baseSalary * f;
+                  const incentive = result.homeCompensation.annualBonus * f;
+                  const equity = result.homeCompensation.equityIncome * f;
+                  const allow = result.benefits.totalAllowances * f;
+                  const taxSS = (result.hostTaxOnComp - result.hypoTax.totalIncomeTax + result.grossUp.totalGrossUp + employerSSCost) * f;
+                  const total = result.totalEstimatedCost * f;
+                  grandTotal += total;
+                  rows.push(
+                    <tr key={i} className="border-b border-slate-100">
+                      <td className="py-2 font-medium text-slate-700">Year {i + 1}</td>
+                      <td className="py-2 text-right text-slate-600">{fmt(base, currency)}</td>
+                      <td className="py-2 text-right text-slate-600">{fmt(incentive, currency)}</td>
+                      <td className="py-2 text-right text-slate-600">{fmt(equity, currency)}</td>
+                      <td className="py-2 text-right text-slate-600">{fmt(allow, currency)}</td>
+                      <td className="py-2 text-right text-slate-600">{fmt(taxSS, currency)}</td>
+                      <td className="py-2 text-right font-semibold text-slate-800">{fmt(total, currency)}</td>
+                    </tr>
+                  );
+                }
+
+                // Trailing years for bonus/equity beyond assignment end
+                const hasTrailing = (result.homeCompensation.annualBonus > 0 || result.homeCompensation.equityIncome > 0);
+                if (hasTrailing) {
+                  const tf = Math.pow(1 + inflationRate, assignmentYears);
+                  const trailingIncentive = result.homeCompensation.annualBonus * tf;
+                  const trailingEquity = result.homeCompensation.equityIncome * tf;
+                  const trailingTotal = trailingIncentive + trailingEquity;
+                  if (trailingTotal > 0) {
+                    grandTotal += trailingTotal;
+                    rows.push(
+                      <tr key="trailing" className="border-b border-slate-100 bg-amber-50/50">
+                        <td className="py-2 font-medium text-amber-700 text-xs">Post-Assignment</td>
+                        <td className="py-2 text-right text-slate-400">—</td>
+                        <td className="py-2 text-right text-amber-600">{fmt(trailingIncentive, currency)}</td>
+                        <td className="py-2 text-right text-amber-600">{fmt(trailingEquity, currency)}</td>
+                        <td className="py-2 text-right text-slate-400">—</td>
+                        <td className="py-2 text-right text-slate-400">—</td>
+                        <td className="py-2 text-right font-semibold text-amber-700">{fmt(trailingTotal, currency)}</td>
+                      </tr>
+                    );
+                  }
+                }
+
+                rows.push(
+                  <tr key="total" className="border-t-2 border-slate-300">
+                    <td className="py-2 font-bold text-slate-800">Total</td>
+                    <td className="py-2 text-right text-slate-400">—</td>
+                    <td className="py-2 text-right text-slate-400">—</td>
+                    <td className="py-2 text-right text-slate-400">—</td>
+                    <td className="py-2 text-right text-slate-400">—</td>
+                    <td className="py-2 text-right text-slate-400">—</td>
+                    <td className="py-2 text-right font-bold text-[#40AEBC]">{fmt(grandTotal, currency)}</td>
                   </tr>
                 );
-              })}
+
+                return rows;
+              })()}
             </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-slate-300">
-                <td className="py-2 font-bold text-slate-800">Total</td>
-                <td className="py-2 text-right text-slate-600">—</td>
-                <td className="py-2 text-right text-slate-600">—</td>
-                <td className="py-2 text-right text-slate-600">—</td>
-                <td className="py-2 text-right font-bold text-[#40AEBC]">{fmt(
-                  Array.from({ length: Math.ceil(input.durationMonths / 12) }, (_, i) => result.totalEstimatedCost * Math.pow(1.03, i)).reduce((a, b) => a + b, 0),
-                  currency
-                )}</td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       </Card>

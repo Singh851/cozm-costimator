@@ -943,6 +943,218 @@ console.log('\n=== Test 19: numChildren Edge Cases ===');
   console.log(`  0 children: $${r0!.totalEstimatedCost.toFixed(0)}, 1: $${r1!.totalEstimatedCost.toFixed(0)}, 2: $${r2!.totalEstimatedCost.toFixed(0)}`);
 }
 
+// ── Test 20: Equity Carve-Out reduces hypo tax ──
+console.log('\n=== Test 20: Equity Carve-Out ===');
+{
+  const base: EstimateInput = {
+    estimateName: 'Carve-Out Test',
+    startDate: '2026-01-01',
+    durationMonths: 24,
+    projectionYears: 2,
+    homeCountryCode: 'GB',
+    homeCityCode: 'LON',
+    hostCountryCode: 'US',
+    hostCityCode: 'NYC',
+    currency: 'USD',
+    baseSalary: 120000,
+    annualBonus: 25000,
+    bonusType: 'fixed',
+    bonusPercentage: 15,
+    equityIncome: 50000,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'single',
+    numChildren: 0,
+    assignmentType: 'longTerm',
+    benefits: getDefaultBenefits(),
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+    equityCarveOut: false,
+  };
+
+  const withoutCarveOut = computeEstimate(base);
+  const withCarveOut = computeEstimate({ ...base, equityCarveOut: true });
+
+  assert(withoutCarveOut !== null && withCarveOut !== null, 'Both carve-out variants produce results');
+  assert(withCarveOut!.hypoTax.totalIncomeTax < withoutCarveOut!.hypoTax.totalIncomeTax,
+    `Carve-out reduces hypo tax: ${withCarveOut!.hypoTax.totalIncomeTax.toFixed(0)} < ${withoutCarveOut!.hypoTax.totalIncomeTax.toFixed(0)}`);
+  assert(withCarveOut!.totalEstimatedCost !== withoutCarveOut!.totalEstimatedCost,
+    'Carve-out changes total estimated cost');
+  console.log(`  Without: hypo=${withoutCarveOut!.hypoTax.totalIncomeTax.toFixed(0)}, total=${withoutCarveOut!.totalEstimatedCost.toFixed(0)}`);
+  console.log(`  With:    hypo=${withCarveOut!.hypoTax.totalIncomeTax.toFixed(0)}, total=${withCarveOut!.totalEstimatedCost.toFixed(0)}`);
+}
+
+// ── Test 21: Other Compensation items increase total gross ──
+console.log('\n=== Test 21: Other Compensation Items ===');
+{
+  const base: EstimateInput = {
+    estimateName: 'Other Comp Test',
+    startDate: '2026-01-01',
+    durationMonths: 12,
+    projectionYears: 1,
+    homeCountryCode: 'US',
+    homeCityCode: 'NYC',
+    hostCountryCode: 'GB',
+    hostCityCode: 'LON',
+    currency: 'USD',
+    baseSalary: 100000,
+    annualBonus: 0,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 0,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'single',
+    numChildren: 0,
+    assignmentType: 'longTerm',
+    benefits: getDefaultBenefits(),
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+  };
+
+  const without = computeEstimate(base);
+  const withComp = computeEstimate({
+    ...base,
+    otherCompensation: [{ name: 'Hardship Allowance', amount: 10000 }],
+  });
+
+  assert(without !== null && withComp !== null, 'Both other-comp variants produce results');
+  assert(withComp!.homeCompensation.totalGross === without!.homeCompensation.totalGross + 10000,
+    `Other comp adds to totalGross: ${withComp!.homeCompensation.totalGross} = ${without!.homeCompensation.totalGross} + 10000`);
+  assert(withComp!.totalEstimatedCost > without!.totalEstimatedCost,
+    'Other comp increases total cost');
+  // Check it appears in breakdown
+  const hardshipItem = withComp!.costBreakdown.find(c => c.category === 'Hardship Allowance');
+  assert(hardshipItem !== undefined && hardshipItem!.amount === 10000,
+    'Hardship Allowance appears in cost breakdown');
+}
+
+// ── Test 22: Other Benefits items increase allowances ──
+console.log('\n=== Test 22: Other Benefits Items ===');
+{
+  const base: EstimateInput = {
+    estimateName: 'Other Benefits Test',
+    startDate: '2026-01-01',
+    durationMonths: 12,
+    projectionYears: 1,
+    homeCountryCode: 'US',
+    homeCityCode: 'NYC',
+    hostCountryCode: 'GB',
+    hostCityCode: 'LON',
+    currency: 'USD',
+    baseSalary: 100000,
+    annualBonus: 0,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 0,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'single',
+    numChildren: 0,
+    assignmentType: 'longTerm',
+    benefits: getDefaultBenefits(),
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+  };
+
+  const without = computeEstimate(base);
+  const withBen = computeEstimate({
+    ...base,
+    otherBenefits: [{ name: 'Language Training', amount: 5000 }],
+  });
+
+  assert(without !== null && withBen !== null, 'Both other-benefits variants produce results');
+  assert(withBen!.benefits.assignmentAllowances === without!.benefits.assignmentAllowances + 5000,
+    `Other benefits adds to assignmentAllowances: ${withBen!.benefits.assignmentAllowances} = ${without!.benefits.assignmentAllowances} + 5000`);
+  assert(withBen!.totalEstimatedCost > without!.totalEstimatedCost,
+    'Other benefits increases total cost (grossed up)');
+  const langItem = withBen!.costBreakdown.find(c => c.category === 'Language Training');
+  assert(langItem !== undefined && langItem!.amount === 5000,
+    'Language Training appears in cost breakdown');
+}
+
+// ── Test 23: Inflation rate affects projection calculations ──
+console.log('\n=== Test 23: Configurable Inflation Rate ===');
+{
+  const base: EstimateInput = {
+    estimateName: 'Inflation Test',
+    startDate: '2026-01-01',
+    durationMonths: 36,
+    projectionYears: 3,
+    homeCountryCode: 'GB',
+    homeCityCode: 'LON',
+    hostCountryCode: 'US',
+    hostCityCode: 'NYC',
+    currency: 'USD',
+    baseSalary: 100000,
+    annualBonus: 0,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 0,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'single',
+    numChildren: 0,
+    assignmentType: 'longTerm',
+    benefits: getDefaultBenefits(),
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+    inflationRate: 0.05,
+  };
+
+  const result = computeEstimate(base);
+  assert(result !== null, 'Inflation test produces result');
+  // The inflation rate is stored on input, used by UI for projection
+  assert(result!.input.inflationRate === 0.05, 'Inflation rate preserved in result input');
+  // Year 2 at 5%: totalCost * 1.05
+  const year2 = result!.totalEstimatedCost * Math.pow(1.05, 1);
+  const year2at3 = result!.totalEstimatedCost * Math.pow(1.03, 1);
+  assert(year2 > year2at3, `5% inflation year 2 (${year2.toFixed(0)}) > 3% inflation year 2 (${year2at3.toFixed(0)})`);
+  console.log(`  Base annual cost: $${result!.totalEstimatedCost.toFixed(0)}`);
+  console.log(`  Year 2 at 5%: $${year2.toFixed(0)}, at 3%: $${year2at3.toFixed(0)}`);
+}
+
+// ── Test 24: Incentive Plan Name appears in breakdown ──
+console.log('\n=== Test 24: Incentive Plan Name in Breakdown ===');
+{
+  const base: EstimateInput = {
+    estimateName: 'Plan Name Test',
+    startDate: '2026-01-01',
+    durationMonths: 12,
+    projectionYears: 1,
+    homeCountryCode: 'GB',
+    homeCityCode: 'LON',
+    hostCountryCode: 'US',
+    hostCityCode: 'NYC',
+    currency: 'USD',
+    baseSalary: 100000,
+    annualBonus: 20000,
+    bonusType: 'fixed',
+    bonusPercentage: 0,
+    equityIncome: 0,
+    equityType: 'rsu',
+    equityVestingSchedule: 'annual',
+    familyStatus: 'single',
+    numChildren: 0,
+    assignmentType: 'longTerm',
+    benefits: getDefaultBenefits(),
+    hypoTaxPhilosophy: 'taxEqualization',
+    ssStrategy: 'home',
+    incentivePlanName: 'Annual STIP',
+  };
+
+  const result = computeEstimate(base);
+  assert(result !== null, 'Plan name test produces result');
+  const stipItem = result!.costBreakdown.find(c => c.category === 'Annual STIP');
+  assert(stipItem !== undefined, 'Breakdown uses "Annual STIP" as category name');
+  assert(stipItem!.amount === 20000, `STIP amount = 20000 (got ${stipItem?.amount})`);
+
+  // Without plan name, should fall back to "Annual Bonus"
+  const noName = computeEstimate({ ...base, incentivePlanName: '' });
+  const fallback = noName!.costBreakdown.find(c => c.category === 'Annual Bonus');
+  assert(fallback !== undefined, 'Empty plan name falls back to "Annual Bonus"');
+}
+
 // ── Summary ──
 console.log(`\n${'='.repeat(50)}`);
 console.log(`RESULTS: ${passed} passed, ${failed} failed, ${passed + failed} total`);

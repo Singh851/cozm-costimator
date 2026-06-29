@@ -48,36 +48,51 @@ export function PrintReport({
       `<tr><td>${item.category} <span style="font-size:9px;color:#94a3b8">(one-off)</span></td><td class="amt">${fmt(item.amount, cur)}</td><td class="amt pct">${item.percentage.toFixed(1)}%</td></tr>`
     ).join('');
 
-    // Year-by-year breakdown (flat, no inflation) — detailed line items
+    // Year-by-year breakdown with inflation — enhanced columns
     const years = Math.ceil(result.input.durationMonths / 12);
-    // Use package-based employer SS from the cost breakdown (not comp-only from homeTax)
+    const inflationRate = result.input.inflationRate ?? 0.03;
     const employerSSCost = result.costBreakdown.find(c => c.category === 'Employer SS')?.amount ?? 0;
-    const oneOffTotal = result.benefits.immigration + result.benefits.relocation + result.benefits.taxPreparation;
-    const recurringAnnual = result.homeCompensation.totalGross
-      + result.benefits.assignmentAllowances
-      + result.grossUp.totalGrossUp + employerSSCost;
+    const incentiveLabel = escapeHtml(result.input.incentivePlanName?.trim() || 'Annual Bonus');
 
     let yearRows = '';
     let durationTotal = 0;
     for (let i = 0; i < years; i++) {
-      const yearTotal = recurringAnnual + (i === 0 ? oneOffTotal : 0);
-      durationTotal += yearTotal;
-      yearRows += `<tr style="background:#f0fafb"><td colspan="2" style="font-weight:600;padding-top:8px">Year ${i + 1}</td></tr>`;
-      yearRows += `<tr><td class="indent">Base Salary</td><td class="amt">${fmt(result.homeCompensation.baseSalary, cur)}</td></tr>`;
-      if (result.homeCompensation.annualBonus > 0) yearRows += `<tr><td class="indent">Annual Bonus</td><td class="amt">${fmt(result.homeCompensation.annualBonus, cur)}</td></tr>`;
-      if (result.homeCompensation.equityIncome > 0) yearRows += `<tr><td class="indent">Equity Income</td><td class="amt">${fmt(result.homeCompensation.equityIncome, cur)}</td></tr>`;
-      if (result.benefits.housing > 0) yearRows += `<tr><td class="indent">Housing</td><td class="amt">${fmt(result.benefits.housing, cur)}</td></tr>`;
-      if (result.benefits.cola > 0) yearRows += `<tr><td class="indent">COLA</td><td class="amt">${fmt(result.benefits.cola, cur)}</td></tr>`;
-      if (result.benefits.education > 0) yearRows += `<tr><td class="indent">Education</td><td class="amt">${fmt(result.benefits.education, cur)}</td></tr>`;
-      if (result.benefits.homeLeave > 0) yearRows += `<tr><td class="indent">Home Leave</td><td class="amt">${fmt(result.benefits.homeLeave, cur)}</td></tr>`;
-      if (result.benefits.transportation > 0) yearRows += `<tr><td class="indent">Transportation</td><td class="amt">${fmt(result.benefits.transportation, cur)}</td></tr>`;
-      if (result.benefits.utilities > 0) yearRows += `<tr><td class="indent">Utilities</td><td class="amt">${fmt(result.benefits.utilities, cur)}</td></tr>`;
-      if (i === 0 && result.benefits.taxPreparation > 0) yearRows += `<tr><td class="indent">Tax Preparation (one-off)</td><td class="amt">${fmt(result.benefits.taxPreparation, cur)}</td></tr>`;
-      if (i === 0 && result.benefits.immigration > 0) yearRows += `<tr><td class="indent">Immigration (one-off)</td><td class="amt">${fmt(result.benefits.immigration, cur)}</td></tr>`;
-      if (i === 0 && result.benefits.relocation > 0) yearRows += `<tr><td class="indent">Relocation (one-off)</td><td class="amt">${fmt(result.benefits.relocation, cur)}</td></tr>`;
-      yearRows += `<tr><td class="indent">Gross-up</td><td class="amt">${fmt(result.grossUp.totalGrossUp, cur)}</td></tr>`;
-      yearRows += `<tr><td class="indent">Employer SS</td><td class="amt">${fmt(employerSSCost, cur)}</td></tr>`;
-      yearRows += `<tr class="total-row"><td style="font-weight:600">Year ${i + 1} Total</td><td class="amt" style="font-weight:600">${fmt(yearTotal, cur)}</td></tr>`;
+      const f = Math.pow(1 + inflationRate, i);
+      const base = result.homeCompensation.baseSalary * f;
+      const incentive = result.homeCompensation.annualBonus * f;
+      const equity = result.homeCompensation.equityIncome * f;
+      const allow = result.benefits.totalAllowances * f;
+      const taxSS = (result.hostTaxOnComp - result.hypoTax.totalIncomeTax + result.grossUp.totalGrossUp + employerSSCost) * f;
+      const total = result.totalEstimatedCost * f;
+      durationTotal += total;
+      yearRows += `<tr>
+        <td style="font-weight:600">Year ${i + 1}</td>
+        <td class="amt">${fmt(base, cur)}</td>
+        <td class="amt">${fmt(incentive, cur)}</td>
+        <td class="amt">${fmt(equity, cur)}</td>
+        <td class="amt">${fmt(allow, cur)}</td>
+        <td class="amt">${fmt(taxSS, cur)}</td>
+        <td class="amt" style="font-weight:600">${fmt(total, cur)}</td>
+      </tr>`;
+    }
+    // Trailing post-assignment row for bonus/equity
+    if (result.homeCompensation.annualBonus > 0 || result.homeCompensation.equityIncome > 0) {
+      const tf = Math.pow(1 + inflationRate, years);
+      const trailingIncentive = result.homeCompensation.annualBonus * tf;
+      const trailingEquity = result.homeCompensation.equityIncome * tf;
+      const trailingTotal = trailingIncentive + trailingEquity;
+      if (trailingTotal > 0) {
+        durationTotal += trailingTotal;
+        yearRows += `<tr style="background:#fffbeb">
+          <td style="font-weight:600;font-size:11px;color:#92400e">Post-Assign.</td>
+          <td class="amt">&mdash;</td>
+          <td class="amt">${fmt(trailingIncentive, cur)}</td>
+          <td class="amt">${fmt(trailingEquity, cur)}</td>
+          <td class="amt">&mdash;</td>
+          <td class="amt">&mdash;</td>
+          <td class="amt" style="font-weight:600">${fmt(trailingTotal, cur)}</td>
+        </tr>`;
+      }
     }
 
     const html = `<!DOCTYPE html>
@@ -151,6 +166,10 @@ export function PrintReport({
       <tr><td class="label">Assignment End</td><td>${escapeHtml(ss.assignmentEnd)}</td></tr>
       <tr><td class="label">Family Status</td><td>${familyLabel}</td></tr>
       <tr><td class="label">Currency</td><td>${cur}</td></tr>
+      ${result.input.incentivePlanName?.trim() ? `<tr><td class="label">Incentive Plan</td><td>${escapeHtml(result.input.incentivePlanName)}</td></tr>` : ''}
+      ${result.input.performancePeriodType && result.input.performancePeriodType !== 'annual' ? `<tr><td class="label">Performance Period</td><td>${result.input.performancePeriodType === '3year' ? '3-Year' : 'Custom'}</td></tr>` : ''}
+      ${result.input.equityIncome > 0 ? `<tr><td class="label">Equity Plan</td><td>${result.input.equityQualifying ? 'Qualifying' : 'Non-Qualifying'}${result.input.equityCarveOut ? ' (Carved out from Tax EQ)' : ''}</td></tr>` : ''}
+      <tr><td class="label">Inflation Rate</td><td>${((result.input.inflationRate ?? 0.03) * 100).toFixed(1)}%</td></tr>
     </table>
   </div>
 
@@ -158,8 +177,9 @@ export function PrintReport({
     <h2 class="section-title">Compensation</h2>
     <table>
       <tr><td>Base Salary</td><td class="amt">${fmt(result.homeCompensation.baseSalary, cur)}</td></tr>
-      <tr><td>Annual Bonus</td><td class="amt">${fmt(result.homeCompensation.annualBonus, cur)}</td></tr>
-      ${result.homeCompensation.equityIncome > 0 ? `<tr><td>Equity Income</td><td class="amt">${fmt(result.homeCompensation.equityIncome, cur)}</td></tr>` : ''}
+      <tr><td>${escapeHtml(result.input.incentivePlanName?.trim() || 'Annual Bonus')}</td><td class="amt">${fmt(result.homeCompensation.annualBonus, cur)}</td></tr>
+      ${result.homeCompensation.equityIncome > 0 ? `<tr><td>Equity Income${result.input.equityQualifying ? ' (Qualifying)' : ''}</td><td class="amt">${fmt(result.homeCompensation.equityIncome, cur)}</td></tr>` : ''}
+      ${(result.input.otherCompensation || []).filter(i => i.amount > 0).map(i => `<tr><td>${escapeHtml(i.name || 'Other Comp')}</td><td class="amt">${fmt(i.amount, cur)}</td></tr>`).join('')}
       <tr class="total-row"><td>Total Gross Compensation</td><td class="amt">${fmt(result.homeCompensation.totalGross, cur)}</td></tr>
     </table>
   </div>
@@ -195,8 +215,9 @@ export function PrintReport({
     <table>
       <tr><td>Total Gross Compensation</td><td class="amt" style="font-weight:600">${fmt(bs.homeGross, cur)}</td></tr>
       <tr><td class="indent">Base Salary</td><td class="amt">${fmt(result.homeCompensation.baseSalary, cur)}</td></tr>
-      <tr><td class="indent">Annual Bonus</td><td class="amt">${fmt(result.homeCompensation.annualBonus, cur)}</td></tr>
+      <tr><td class="indent">${escapeHtml(result.input.incentivePlanName?.trim() || 'Annual Bonus')}</td><td class="amt">${fmt(result.homeCompensation.annualBonus, cur)}</td></tr>
       ${result.homeCompensation.equityIncome > 0 ? `<tr><td class="indent">Equity Income</td><td class="amt">${fmt(result.homeCompensation.equityIncome, cur)}</td></tr>` : ''}
+      ${(result.input.otherCompensation || []).filter(i => i.amount > 0).map(i => `<tr><td class="indent">${escapeHtml(i.name || 'Other Comp')}</td><td class="amt">${fmt(i.amount, cur)}</td></tr>`).join('')}
       <tr><td>Less: Hypothetical Tax</td><td class="amt neg">(${fmt(bs.hypoTax, cur)})</td></tr>
       <tr><td>Less: Hypothetical SS</td><td class="amt neg">(${fmt(bs.hypoSS, cur)})</td></tr>
       <tr class="total-row" style="background:#f0fafb"><td style="font-weight:700">Net Home Compensation</td><td class="amt" style="font-weight:700;color:#40AEBC">${fmt(bs.netHomeComp, cur)}</td></tr>
@@ -219,12 +240,12 @@ export function PrintReport({
   </div>
 
   <div class="section">
-    <h2 class="section-title">Annual Cost Projection (Detailed)</h2>
+    <h2 class="section-title">Cost Projection (${(inflationRate * 100).toFixed(1)}% inflation)</h2>
     <table>
-      <thead><tr><th>Line Item</th><th>Amount</th></tr></thead>
+      <thead><tr><th>Year</th><th>Base Salary</th><th>${incentiveLabel}</th><th>Equity</th><th>Allowances</th><th>Tax & SS</th><th>Total</th></tr></thead>
       <tbody>
         ${yearRows}
-        <tr class="grand-total"><td>Assignment Total (${result.input.durationMonths} months)</td><td class="amt">${fmt(durationTotal, cur)}</td></tr>
+        <tr class="grand-total"><td>Assignment Total</td><td class="amt" colspan="5"></td><td class="amt">${fmt(durationTotal, cur)}</td></tr>
       </tbody>
     </table>
   </div>

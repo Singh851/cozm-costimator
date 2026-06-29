@@ -69,6 +69,11 @@ export interface BenefitConfig {
   percentageOf?: string;
 }
 
+export interface CustomItem {
+  name: string;
+  amount: number;
+}
+
 export interface EstimateInput {
   estimateName: string;
   startDate: string;
@@ -99,6 +104,17 @@ export interface EstimateInput {
   bonusPerformancePeriodEnd?: string;
   equityVestingStart?: string;
   equityVestingEnd?: string;
+  // Cash Incentive Plan
+  incentivePlanName?: string;
+  performancePeriodType?: 'annual' | '3year' | 'custom';
+  // Equity enhancements
+  equityQualifying?: boolean;
+  equityCarveOut?: boolean;
+  // Inflation
+  inflationRate?: number; // default 0.03
+  // Custom items
+  otherCompensation?: CustomItem[];
+  otherBenefits?: CustomItem[];
 }
 
 export interface SplitSourcingResult {

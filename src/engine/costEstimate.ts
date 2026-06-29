@@ -72,8 +72,11 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
     : (input.annualBonus || 0);
   const equityIncome = input.equityIncome || 0;
 
+  // Other Compensation items (fully taxable, added to gross comp)
+  const otherCompTotal = (input.otherCompensation || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+
   const totalCashComp = baseSalary + annualBonus;
-  const totalGrossComp = totalCashComp + equityIncome;
+  const totalGrossComp = totalCashComp + equityIncome + otherCompTotal;
 
   // --- Benefits ---
   const benefits = input.benefits;
@@ -101,9 +104,12 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const taxPrepAnnual = benefits.includeTaxPreparation?.enabled
     ? (benefits.includeTaxPreparation.annualAmount || 5000) : 0;
 
+  // Other Benefits items (grossed up, added to allowances)
+  const otherBenefitsTotal = (input.otherBenefits || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+
   // Ongoing assignment allowances (excl one-offs)
   const assignmentAllowances = housingAnnual + colaAnnual + schoolingAnnual + homeLeaveAnnual
-    + transportAnnual + utilitiesAnnual;
+    + transportAnnual + utilitiesAnnual + otherBenefitsTotal;
   // Total including one-offs
   const totalAllowances = assignmentAllowances + immigrationAnnual + relocationAnnual + taxPrepAnnual;
 
@@ -148,7 +154,9 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   //   taxEqualization: what employee would pay at home on the same gross (standard)
   //   taxProtection:   lesser of home tax and host tax on comp (employee pays no more than the lower)
   //   stayAtHome:      actual home tax (same as equalisation for base case)
-  const hypoLocalIncome = totalGrossComp / homeFx;
+  // Equity carve-out: when enabled, equity is excluded from the hypo tax base
+  const hypoGrossComp = input.equityCarveOut ? (totalGrossComp - equityIncome) : totalGrossComp;
+  const hypoLocalIncome = hypoGrossComp / homeFx;
   const hypoTaxLocal = calculateHypoTax(hypoLocalIncome, homeCountry, homeStateTaxRate, homeLocalTaxRate, input.hypoTaxPhilosophy, numChildren, isMarried);
   let hypoTax = convertTaxResult(hypoTaxLocal, homeFx);
 
@@ -198,16 +206,23 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const monthlyCost = annualCost / 12;
 
   // --- Cost Breakdown ---
+  // Build incentive plan label from user-provided name or fall back to "Annual Bonus"
+  const incentiveLabel = input.incentivePlanName?.trim() || 'Annual Bonus';
+
   const costItems: { category: string; amount: number; oneOff?: boolean }[] = [
     { category: 'Base Salary', amount: baseSalary },
-    { category: 'Annual Bonus', amount: annualBonus },
+    { category: incentiveLabel, amount: annualBonus },
     { category: 'Equity Income', amount: equityIncome },
+    // Other Compensation custom items
+    ...(input.otherCompensation || []).filter(i => i.amount > 0).map(i => ({ category: i.name || 'Other Comp', amount: i.amount })),
     { category: 'Housing', amount: housingAnnual },
     { category: 'COLA', amount: colaAnnual },
     { category: 'Education', amount: schoolingAnnual },
     { category: 'Home Leave', amount: homeLeaveAnnual },
     { category: 'Transportation', amount: transportAnnual },
     { category: 'Utilities', amount: utilitiesAnnual },
+    // Other Benefits custom items
+    ...(input.otherBenefits || []).filter(i => i.amount > 0).map(i => ({ category: i.name || 'Other Benefit', amount: i.amount })),
     { category: 'Immigration', amount: immigrationAnnual, oneOff: true },
     { category: 'Relocation', amount: relocationAnnual, oneOff: true },
     { category: 'Tax Preparation', amount: taxPrepAnnual, oneOff: true },
@@ -227,7 +242,7 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const oneOffPayment = input.oneOffPayment || 0;
   if (oneOffPayment > 0) {
     // Marginal hypo tax (home) on the one-off
-    const hypoWithOneOffLocal = (totalGrossComp + oneOffPayment) / homeFx;
+    const hypoWithOneOffLocal = (hypoGrossComp + oneOffPayment) / homeFx;
     const hypoWithOneOffTaxLocal = calculateHypoTax(hypoWithOneOffLocal, homeCountry, homeStateTaxRate, homeLocalTaxRate, input.hypoTaxPhilosophy, numChildren, isMarried);
     const hypoWithOneOff = convertTaxResult(hypoWithOneOffTaxLocal, homeFx);
     const marginalHypoTax = hypoWithOneOff.totalIncomeTax - hypoTax.totalIncomeTax;
