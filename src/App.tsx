@@ -268,6 +268,17 @@ function InputPanel({
             {assignmentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </Field>
+        <Field label="Host Role %" hint="For split-role / partial assignments (e.g. 30% host, 70% home). Scales host-taxable base salary.">
+          <input
+            type="number"
+            value={input.hostRolePercentage ?? 100}
+            onChange={e => update({ hostRolePercentage: Math.max(0, Math.min(100, +e.target.value)) })}
+            className="input-field"
+            min={0}
+            max={100}
+            step={5}
+          />
+        </Field>
         {homeCountry && hostCountry && (
           <div className="bg-sky-50 rounded-lg p-3 border border-sky-200">
             <label className="text-sm font-semibold text-sky-800 block mb-2">Exchange Rates</label>
@@ -710,6 +721,16 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
         </div>
       </Card>
 
+      {/* Key Metrics */}
+      <Card title="Key Metrics">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <MetricCard label="Cost / Month" value={fmt(result.monthlyCost, currency)} />
+          <MetricCard label="Cost Multiple" value={`${(result.totalEstimatedCost / (result.homeCompensation.baseSalary || 1)).toFixed(2)}x base`} />
+          <MetricCard label="Tax EQ Premium" value={fmt(result.hostTaxOnComp - result.hypoTax.totalIncomeTax, currency)} sub={result.hostTaxOnComp > result.hypoTax.totalIncomeTax ? 'Host tax exceeds hypo' : 'Hypo exceeds host tax'} />
+          <MetricCard label="SS Employer Cost" value={fmt(result.costBreakdown.find(c => c.category === 'Employer SS')?.amount ?? 0, currency)} sub={`Strategy: ${result.input.ssStrategy}`} />
+        </div>
+      </Card>
+
       {/* Cost Distribution Chart */}
       <Card title="Cost Distribution">
         <CostCharts breakdown={result.costBreakdown} currency={currency} />
@@ -850,15 +871,17 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
 
       {/* One-off Payment Analysis */}
       {result.oneOffAnalysis && (
-        <Card title="One-off Payment Analysis">
+        <Card title="One-off Payment Analysis" subtitle="Hypothetical tax calculation on one-time payment">
           <div className="bg-rose-50 rounded-lg p-4 border border-rose-200">
             <div className="space-y-1.5 text-sm">
+              {/* Step 1: Gross payment */}
+              <p className="text-[10px] font-semibold text-rose-500 uppercase tracking-wider pb-1">Step 1: Employee Deductions</p>
               <div className="flex justify-between">
-                <span className="text-rose-700 font-medium">Payment Amount</span>
+                <span className="text-rose-700 font-medium">Gross One-Time Payment</span>
                 <span className="font-semibold text-rose-800">{fmt(result.oneOffAnalysis.payment, currency)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-rose-700">Less: Hypo Tax ({(result.oneOffAnalysis.marginalRate * 100).toFixed(0)}%)</span>
+                <span className="text-rose-700">Less: Hypothetical Tax at Marginal Rate ({(result.oneOffAnalysis.marginalRate * 100).toFixed(1)}%)</span>
                 <span className="font-medium text-red-600">({fmt(result.oneOffAnalysis.hypoTax, currency)})</span>
               </div>
               <div className="flex justify-between">
@@ -869,12 +892,15 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
                 <span className="text-rose-700 font-medium">Net Payment to Employee</span>
                 <span className="font-semibold text-rose-800">{fmt(result.oneOffAnalysis.netToEmployee, currency)}</span>
               </div>
+
+              {/* Step 2: Employer costs */}
+              <p className="text-[10px] font-semibold text-rose-500 uppercase tracking-wider pt-3 pb-1">Step 2: Employer Tax Cost</p>
               <div className="flex justify-between">
-                <span className="text-rose-700">Add: Host Tax Gross-Up</span>
+                <span className="text-rose-700">Host Tax Gross-Up on Payment</span>
                 <span className="font-medium text-rose-800">{fmt(result.oneOffAnalysis.hostTaxGrossUp, currency)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-rose-700">Add: Employer Social Security</span>
+                <span className="text-rose-700">Marginal Employer Social Security</span>
                 <span className="font-medium text-rose-800">{fmt(result.oneOffAnalysis.employerSS, currency)}</span>
               </div>
               <div className="flex justify-between border-t-2 border-rose-300 pt-2 mt-1">
@@ -1138,6 +1164,16 @@ function TaxSummaryCard({ title, rate, tax, ss, currency, color }: {
           <span className="text-slate-700 font-medium">{fmt(ss, currency)}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-center">
+      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
+      <p className="text-lg font-bold text-slate-800 mt-1">{value}</p>
+      {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
     </div>
   );
 }

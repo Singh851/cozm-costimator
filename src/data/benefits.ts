@@ -107,4 +107,13 @@ export const currencies = [
   { code: 'BRL', symbol: 'R$', name: 'Brazilian Real' },
   { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit' },
   { code: 'KRW', symbol: '\u20a9', name: 'South Korean Won' },
+  { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc' },
+  { code: 'MXN', symbol: 'MX$', name: 'Mexican Peso' },
+  { code: 'CLP', symbol: 'CLP$', name: 'Chilean Peso' },
+  { code: 'COP', symbol: 'COP$', name: 'Colombian Peso' },
+  { code: 'PEN', symbol: 'S/.', name: 'Peruvian Sol' },
+  { code: 'BND', symbol: 'B$', name: 'Brunei Dollar' },
+  { code: 'BOB', symbol: 'Bs.', name: 'Bolivian Boliviano' },
+  { code: 'UYU', symbol: '$U', name: 'Uruguayan Peso' },
+  { code: 'CRC', symbol: '\u20a1', name: 'Costa Rican Colon' },
 ] as const;

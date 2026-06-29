@@ -634,6 +634,65 @@ export const countries: Country[] = [
       { code: 'MVD', name: 'Montevideo', housingMonthly: 35000, schoolingAnnual: 400000, colaIndex: 70, utilitiesMonthly: 5000, transportMonthly: 2000 },
     ],
   },
+  {
+    code: 'CH',
+    name: 'Switzerland',
+    currency: ['CHF', 'CHF'],
+    defaultFxToUSD: 1.12,
+    federalBrackets: [
+      { min: 0, max: 18500, rate: 0 },
+      { min: 18500, max: 33200, rate: 0.0077 },
+      { min: 33200, max: 43500, rate: 0.0088 },
+      { min: 43500, max: 58000, rate: 0.0264 },
+      { min: 58000, max: 76100, rate: 0.0297 },
+      { min: 76100, max: 82000, rate: 0.0594 },
+      { min: 82000, max: 108800, rate: 0.066 },
+      { min: 108800, max: 141500, rate: 0.088 },
+      { min: 141500, max: 184900, rate: 0.11 },
+      { min: 184900, max: 793400, rate: 0.132 },
+      { min: 793400, max: Infinity, rate: 0.115 },
+    ],
+    standardDeduction: 0,
+    personalAllowance: 0,
+    ssEmployeeRate: 0.053, // AHV/IV/EO
+    ssEmployerRate: 0.053,
+    ssCap: 0, // uncapped
+    avgTax: 0.22,
+    cities: [
+      { code: 'ZRH', name: 'Zurich', housingMonthly: 3500, schoolingAnnual: 35000, colaIndex: 120, utilitiesMonthly: 300, transportMonthly: 120 },
+      { code: 'GVA', name: 'Geneva', housingMonthly: 3800, schoolingAnnual: 38000, colaIndex: 122, utilitiesMonthly: 320, transportMonthly: 110 },
+      { code: 'BSL', name: 'Basel', housingMonthly: 2800, schoolingAnnual: 30000, colaIndex: 115, utilitiesMonthly: 280, transportMonthly: 100 },
+      { code: 'BRN', name: 'Bern', housingMonthly: 2500, schoolingAnnual: 28000, colaIndex: 110, utilitiesMonthly: 260, transportMonthly: 90 },
+    ],
+  },
+  {
+    code: 'MX',
+    name: 'Mexico',
+    currency: ['MXN', 'MX$'],
+    defaultFxToUSD: 0.058,
+    federalBrackets: [
+      { min: 0, max: 8982, rate: 0 },
+      { min: 8982, max: 75000, rate: 0.0192 },
+      { min: 75000, max: 150000, rate: 0.064 },
+      { min: 150000, max: 300000, rate: 0.1088 },
+      { min: 300000, max: 500000, rate: 0.16 },
+      { min: 500000, max: 750000, rate: 0.2136 },
+      { min: 750000, max: 1000000, rate: 0.2352 },
+      { min: 1000000, max: 3000000, rate: 0.30 },
+      { min: 3000000, max: Infinity, rate: 0.35 },
+    ],
+    standardDeduction: 0,
+    personalAllowance: 0,
+    ssEmployeeRate: 0.03, // IMSS employee portion
+    ssEmployerRate: 0.25, // IMSS employer (varies by wage zone)
+    ssCap: 0,
+    avgTax: 0.25,
+    cities: [
+      { code: 'MEX', name: 'Mexico City', housingMonthly: 25000, schoolingAnnual: 300000, colaIndex: 80, utilitiesMonthly: 3000, transportMonthly: 2000 },
+      { code: 'MTY', name: 'Monterrey', housingMonthly: 20000, schoolingAnnual: 250000, colaIndex: 75, utilitiesMonthly: 2500, transportMonthly: 1500 },
+      { code: 'GDL', name: 'Guadalajara', housingMonthly: 18000, schoolingAnnual: 220000, colaIndex: 72, utilitiesMonthly: 2200, transportMonthly: 1200 },
+    ],
+  },
 ];
 
 // PwC Worldwide Tax Summaries reference data — CIT, VAT, WHT, CGT, dividend rates
@@ -665,6 +724,8 @@ const taxRefData: Record<string, Omit<import('../types').TaxReference, 'dividend
   EC: { corporateTaxRate: 25, vatRate: 12, capitalGainsTaxRate: 10, whtDividends: 10, whtInterest: 0, whtRoyalties: 10 },
   BO: { corporateTaxRate: 25, vatRate: 13, capitalGainsTaxRate: 25, whtDividends: 7.5, whtInterest: 13, whtRoyalties: 25 },
   UY: { corporateTaxRate: 25, vatRate: 22, capitalGainsTaxRate: 12, whtDividends: 7, whtInterest: 0, whtRoyalties: 12 },
+  CH: { corporateTaxRate: 14.9, vatRate: 8.1, capitalGainsTaxRate: 0, whtDividends: 35, whtInterest: 35, whtRoyalties: 0 },
+  MX: { corporateTaxRate: 30, vatRate: 16, capitalGainsTaxRate: 30, whtDividends: 10, whtInterest: 4.9, whtRoyalties: 25 },
 };
 
 // Dividend tax brackets per PIT band (from PwC WTS PIT Brackets sheet)

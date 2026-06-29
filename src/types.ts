@@ -115,6 +115,8 @@ export interface EstimateInput {
   // Custom items
   otherCompensation?: CustomItem[];
   otherBenefits?: CustomItem[];
+  // Split-role / partial assignment (e.g. 30% host role)
+  hostRolePercentage?: number; // 0-100, default 100 (full assignment)
 }
 
 export interface SplitSourcingResult {

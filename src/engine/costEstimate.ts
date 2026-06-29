@@ -118,6 +118,9 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const bonusHostTaxable = splitSourcing.bonus.hostTaxableAmount;
   const equityHostTaxable = splitSourcing.equity.hostTaxableAmount;
 
+  // Host role percentage for split-role/partial assignments (default 100%)
+  const hostRolePct = (input.hostRolePercentage ?? 100) / 100;
+
   // --- Tax Calculations (with FX conversion) ---
   const homeStateTaxRate = homeState?.stateTaxRate || 0;
   const homeLocalTaxRate = homeState?.localTaxRate || 0;
@@ -130,7 +133,8 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const homeTax = convertTaxResult(homeTaxLocal, homeFx);
 
   // Host country tax on full package (comp + split-sourced bonus/equity + allowances)
-  const hostCompIncome = baseSalary + bonusHostTaxable + equityHostTaxable;
+  // Apply host role percentage for split-role assignments
+  const hostCompIncome = (baseSalary * hostRolePct) + bonusHostTaxable + equityHostTaxable;
   const hostTaxableIncome = hostCompIncome + totalAllowances;
   const hostLocalIncome = hostTaxableIncome / hostFx;
   const hostTaxLocal = calculateTax(hostLocalIncome, hostCountry, hostStateTaxRate, hostLocalTaxRate, numChildren, isMarried);
