@@ -659,10 +659,16 @@ export const countries: Country[] = [
     ssCap: 0, // uncapped
     avgTax: 0.22,
     cities: [
-      { code: 'ZRH', name: 'Zurich', housingMonthly: 3500, schoolingAnnual: 35000, colaIndex: 120, utilitiesMonthly: 300, transportMonthly: 120 },
-      { code: 'GVA', name: 'Geneva', housingMonthly: 3800, schoolingAnnual: 38000, colaIndex: 122, utilitiesMonthly: 320, transportMonthly: 110 },
-      { code: 'BSL', name: 'Basel', housingMonthly: 2800, schoolingAnnual: 30000, colaIndex: 115, utilitiesMonthly: 280, transportMonthly: 100 },
-      { code: 'BRN', name: 'Bern', housingMonthly: 2500, schoolingAnnual: 28000, colaIndex: 110, utilitiesMonthly: 260, transportMonthly: 90 },
+      { code: 'ZRH', name: 'Zurich, ZH', housingMonthly: 3500, schoolingAnnual: 35000, colaIndex: 120, utilitiesMonthly: 300, transportMonthly: 120 },
+      { code: 'GVA', name: 'Geneva, GE', housingMonthly: 3800, schoolingAnnual: 38000, colaIndex: 122, utilitiesMonthly: 320, transportMonthly: 110 },
+      { code: 'BSL', name: 'Basel, BS', housingMonthly: 2800, schoolingAnnual: 30000, colaIndex: 115, utilitiesMonthly: 280, transportMonthly: 100 },
+      { code: 'BRN', name: 'Bern, BE', housingMonthly: 2500, schoolingAnnual: 28000, colaIndex: 110, utilitiesMonthly: 260, transportMonthly: 90 },
+    ],
+    states: [
+      { code: 'ZH', name: 'Zurich', stateTaxRate: 0.12, localTaxRate: 0.035 },
+      { code: 'GE', name: 'Geneva', stateTaxRate: 0.14, localTaxRate: 0.035 },
+      { code: 'BS', name: 'Basel-Stadt', stateTaxRate: 0.14, localTaxRate: 0.03 },
+      { code: 'BE', name: 'Bern', stateTaxRate: 0.13, localTaxRate: 0.03 },
     ],
   },
   {
