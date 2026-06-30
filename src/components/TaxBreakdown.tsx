@@ -8,6 +8,15 @@ const fmt = (n: number, currency?: string) => {
   return `${sym}${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 };
 
+const fmtShort = (n: number, currency?: string) => {
+  const c = currencies.find(cc => cc.code === currency);
+  const sym = c?.symbol || '$';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${sym}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sym}${(abs / 1_000).toFixed(0)}k`;
+  return `${sym}${abs.toFixed(0)}`;
+};
+
 export function TaxBreakdown({ title, subtitle, tax, country, currency }: {
   title: string;
   subtitle?: string;
@@ -17,8 +26,8 @@ export function TaxBreakdown({ title, subtitle, tax, country, currency }: {
 }) {
   const bracketData = tax.brackets.map(b => ({
     name: b.bracket.max === Infinity
-      ? `${fmt(b.bracket.min, currency)}+`
-      : `${fmt(b.bracket.min, currency)} - ${fmt(b.bracket.max, currency)}`,
+      ? `${fmtShort(b.bracket.min, currency)}+`
+      : `${fmtShort(b.bracket.min, currency)}–${fmtShort(b.bracket.max, currency)}`,
     rate: b.bracket.rate * 100,
     tax: b.taxInBracket,
   }));
@@ -96,10 +105,10 @@ export function TaxBreakdown({ title, subtitle, tax, country, currency }: {
           {bracketData.length > 1 && (
             <div>
               <h4 className="text-sm font-semibold text-slate-700 mb-2">Tax by Bracket</h4>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={bracketData}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={bracketData} margin={{ bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-30} textAnchor="end" interval={0} height={50} />
                   <YAxis tickFormatter={v => fmt(v, currency)} tick={{ fontSize: 10 }} />
                   <Tooltip
                     formatter={(value, name) =>
