@@ -8,6 +8,7 @@ import { TaxBreakdown } from './components/TaxBreakdown';
 import { BalanceSheet } from './components/BalanceSheet';
 import { PrintReport } from './components/PrintReport';
 import { TaxReference } from './components/TaxReference';
+import { CompensationStatement } from './components/CompensationStatement';
 
 const sortedCountries = countries.slice().sort((a, b) => a.name.localeCompare(b.name));
 
@@ -20,7 +21,7 @@ const fmt = (n: number, currency?: string) => {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'estimate' | 'host' | 'hypo' | 'planning'>('estimate');
+  const [activeTab, setActiveTab] = useState<'estimate' | 'host' | 'hypo' | 'planning' | 'compStatement'>('estimate');
   const [showReport, setShowReport] = useState(false);
 
   const [input, setInput] = useState<EstimateInput>({
@@ -116,6 +117,7 @@ function App() {
               { id: 'estimate' as const, label: 'Cost Estimate' },
               { id: 'host' as const, label: 'Host Tax Calculation' },
               { id: 'hypo' as const, label: 'Hypothetical Tax' },
+              { id: 'compStatement' as const, label: 'Compensation Statement' },
               { id: 'planning' as const, label: 'Planning Insights' },
             ].map(tab => (
               <button
@@ -182,6 +184,16 @@ function App() {
             />
             <BalanceSheet result={result} currency={input.currency} />
           </div>
+        )}
+
+        {activeTab === 'compStatement' && result && (
+          <CompensationStatement
+            result={result}
+            currency={input.currency}
+            input={input}
+            homeCountry={homeCountry}
+            hostCountry={hostCountry}
+          />
         )}
 
         {activeTab === 'planning' && result && (
