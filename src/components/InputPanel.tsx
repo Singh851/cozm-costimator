@@ -15,6 +15,9 @@ export function InputPanel({
   homeCountry: Country | undefined;
   hostCountry: Country | undefined;
 }) {
+  const hostDays = input.hostDaysPerYear ?? 365;
+  const hostPct = Math.round(hostDays / 365 * 100);
+
   return (
     <>
       {/* Estimate Name & Timeline */}
@@ -53,11 +56,22 @@ export function InputPanel({
           />
         </Field>
         <Field label="Assignment Type" hint="Choose the assignment type to apply standard benefits and tax logic">
-          <select value={input.assignmentType} onChange={e => update({ assignmentType: e.target.value as EstimateInput['assignmentType'] })} className="input-field">
+          <select
+            value={input.assignmentType}
+            onChange={e => {
+              const type = e.target.value as EstimateInput['assignmentType'];
+              const updates: Partial<EstimateInput> = { assignmentType: type };
+              if (type === 'commuter' && (input.hostDaysPerYear ?? 365) === 365) {
+                updates.hostDaysPerYear = 183;
+              }
+              update(updates);
+            }}
+            className="input-field"
+          >
             {assignmentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </Field>
-        <Field label="Days in Host Country" hint={`${input.hostDaysPerYear ?? 365} days/year = ${((input.hostDaysPerYear ?? 365) / 365 * 100).toFixed(0)}% of year. Scales host-taxable base salary.`}>
+        <Field label="Days in Host Country" hint={`${hostDays} days host / ${365 - hostDays} days home = ${hostPct}% host, ${100 - hostPct}% home`}>
           <div className="flex items-center gap-3">
             <input
               type="range"
@@ -76,6 +90,17 @@ export function InputPanel({
               min={0}
               max={365}
             />
+          </div>
+          {/* Visual split bar */}
+          <div className="mt-2">
+            <div className="flex rounded-full overflow-hidden h-3">
+              <div className="bg-[#40AEBC] transition-all" style={{ width: `${hostPct}%` }} />
+              <div className="bg-slate-300 transition-all" style={{ width: `${100 - hostPct}%` }} />
+            </div>
+            <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+              <span>Host: {hostDays} days ({hostPct}%)</span>
+              <span>Home: {365 - hostDays} days ({100 - hostPct}%)</span>
+            </div>
           </div>
         </Field>
         <Field label="Host Role %" hint="For split-role / partial assignments (e.g. 30% host, 70% home). Scales host-taxable base salary.">

@@ -93,7 +93,7 @@ export interface EstimateInput {
   equityVestingSchedule: 'annual' | 'quarterly' | 'monthly';
   familyStatus: 'single' | 'married' | 'married_children';
   numChildren: number;
-  assignmentType: 'longTerm' | 'shortTerm' | 'localPlus' | 'permanent';
+  assignmentType: 'longTerm' | 'shortTerm' | 'localPlus' | 'permanent' | 'commuter';
   benefits: Record<string, BenefitConfig>;
   hypoTaxPhilosophy: 'taxEqualization' | 'taxProtection' | 'stayAtHome';
   ssStrategy: 'home' | 'host' | 'both';

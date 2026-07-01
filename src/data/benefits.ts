@@ -75,6 +75,7 @@ export const assignmentTypes = [
   { value: 'shortTerm', label: 'Short-Term Assignment', description: 'Temporary assignment under 12 months' },
   { value: 'localPlus', label: 'Local Plus', description: 'Local contract with supplemental benefits' },
   { value: 'permanent', label: 'Permanent Transfer', description: 'One-way relocation to host country' },
+  { value: 'commuter', label: 'Commuter Assignment', description: 'Regular commute between home and host — split time between locations' },
 ] as const;
 
 export const equityTypes = [
