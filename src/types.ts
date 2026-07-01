@@ -117,6 +117,8 @@ export interface EstimateInput {
   otherBenefits?: CustomItem[];
   // Split-role / partial assignment (e.g. 30% host role)
   hostRolePercentage?: number; // 0-100, default 100 (full assignment)
+  // Days-based split: how many calendar days per year the assignee is in the host country
+  hostDaysPerYear?: number; // 0-365, default 365 (full year in host)
 }
 
 export interface SplitSourcingResult {

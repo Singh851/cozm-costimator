@@ -57,6 +57,27 @@ export function InputPanel({
             {assignmentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </Field>
+        <Field label="Days in Host Country" hint={`${input.hostDaysPerYear ?? 365} days/year = ${((input.hostDaysPerYear ?? 365) / 365 * 100).toFixed(0)}% of year. Scales host-taxable base salary.`}>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              value={input.hostDaysPerYear ?? 365}
+              onChange={e => update({ hostDaysPerYear: +e.target.value })}
+              className="flex-1 accent-[#40AEBC] h-2 cursor-pointer"
+              min={0}
+              max={365}
+              step={1}
+            />
+            <input
+              type="number"
+              value={input.hostDaysPerYear ?? 365}
+              onChange={e => update({ hostDaysPerYear: Math.max(0, Math.min(365, +e.target.value)) })}
+              className="input-field w-16 text-center text-xs"
+              min={0}
+              max={365}
+            />
+          </div>
+        </Field>
         <Field label="Host Role %" hint="For split-role / partial assignments (e.g. 30% host, 70% home). Scales host-taxable base salary.">
           <input
             type="number"

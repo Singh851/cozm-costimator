@@ -120,6 +120,8 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
 
   // Host role percentage for split-role/partial assignments (default 100%)
   const hostRolePct = (input.hostRolePercentage ?? 100) / 100;
+  // Days-based split: fraction of the year spent in host country (default 365/365 = 100%)
+  const hostDaysPct = (input.hostDaysPerYear ?? 365) / 365;
 
   // --- Tax Calculations (with FX conversion) ---
   const homeStateTaxRate = homeState?.stateTaxRate || 0;
@@ -133,8 +135,8 @@ export function computeEstimate(input: EstimateInput): CostEstimateResult | null
   const homeTax = convertTaxResult(homeTaxLocal, homeFx);
 
   // Host country tax on full package (comp + split-sourced bonus/equity + allowances)
-  // Apply host role percentage for split-role assignments
-  const hostCompIncome = (baseSalary * hostRolePct) + bonusHostTaxable + equityHostTaxable;
+  // Apply host role percentage AND days-based split for partial assignments
+  const hostCompIncome = (baseSalary * hostRolePct * hostDaysPct) + bonusHostTaxable + equityHostTaxable;
   const hostTaxableIncome = hostCompIncome + totalAllowances;
   const hostLocalIncome = hostTaxableIncome / hostFx;
   const hostTaxLocal = calculateTax(hostLocalIncome, hostCountry, hostStateTaxRate, hostLocalTaxRate, numChildren, isMarried);
