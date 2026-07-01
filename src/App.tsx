@@ -255,6 +255,33 @@ function ResultsPanel({ result, currency }: { result: NonNullable<ReturnType<typ
         </div>
       </div>
 
+      {/* Days Split Bar */}
+      {(result.input.hostDaysPerYear ?? 365) < 365 && (() => {
+        const hostDays = result.input.hostDaysPerYear ?? 365;
+        const homeDays = 365 - hostDays;
+        const hostPct = Math.round(hostDays / 365 * 100);
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-slate-800">Home / Host Split</h3>
+              <span className="text-xs text-slate-400">{result.input.assignmentType === 'commuter' ? 'Commuter Assignment' : 'Partial Assignment'}</span>
+            </div>
+            <div className="flex rounded-full overflow-hidden h-4">
+              <div className="bg-[#40AEBC] transition-all flex items-center justify-center" style={{ width: `${hostPct}%` }}>
+                {hostPct >= 20 && <span className="text-[10px] font-semibold text-white">{hostPct}%</span>}
+              </div>
+              <div className="bg-slate-300 transition-all flex items-center justify-center" style={{ width: `${100 - hostPct}%` }}>
+                {(100 - hostPct) >= 20 && <span className="text-[10px] font-semibold text-slate-600">{100 - hostPct}%</span>}
+              </div>
+            </div>
+            <div className="flex justify-between text-xs text-slate-500 mt-1.5">
+              <span>Host: {hostDays} days/year</span>
+              <span>Home: {homeDays} days/year</span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Compensation Summary */}
       <Card title="Compensation Summary">
         <div className="space-y-2">
